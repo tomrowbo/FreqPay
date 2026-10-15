@@ -70,7 +70,8 @@ export interface Store {
   agent: { nextRunAt?: number; running?: boolean }
 }
 
-const FILE = path.join(process.cwd(), 'data', 'store.json')
+// On Vercel only /tmp is writable (per instance, not shared): fine for the public demo.
+const FILE = process.env.VERCEL ? path.join('/tmp', 'freqpay-store.json') : path.join(process.cwd(), 'data', 'store.json')
 
 export const DEFAULT_PROFILE: Profile = {
   team: 'Rowbo Studio (60 people)',

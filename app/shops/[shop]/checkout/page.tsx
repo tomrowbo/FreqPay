@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { formatGBP, shopBySlug } from '@/lib/shops'
 import { readBasket } from '@/lib/basket'
 import ShopFrame from '../ShopFrame'
+import { PUBLIC_DEMO } from '@/lib/demo'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ export default async function CheckoutPage({ params, searchParams }: { params: P
   return (
     <ShopFrame shop={shop} count={b.count}>
       <h1>Checkout</h1>
+      {PUBLIC_DEMO ? <p className="card" style={{ maxWidth: 520 }}><strong>Checkout is disabled in the public demo.</strong> This is a simulated store. In the demo, FreqPay&apos;s agent pays here with its own Stripe Issuing test card. Never enter real card details on a demo site.</p> : <>
       {declined && <p className="bad" id="decline-message" role="alert"><strong>Payment declined:</strong> {declined}</p>}
       <div className="card" style={{ maxWidth: 520 }}>
         <p>{b.count} packs · subtotal {formatGBP(b.subtotal)} · delivery {b.delivery ? formatGBP(b.delivery) : 'free'} · <strong id="checkout-total">{formatGBP(b.total)}</strong></p>
@@ -32,6 +34,7 @@ export default async function CheckoutPage({ params, searchParams }: { params: P
         {b.belowMinimum && <p className="bad">Minimum order is {formatGBP(b.minimum)}.</p>}
         <p className="muted">Sandbox: card payments are authorised against Stripe Issuing test mode.</p>
       </div>
+      </>}
     </ShopFrame>
   )
 }

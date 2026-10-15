@@ -415,7 +415,11 @@ export function priceOf(product: Product, weekIndex: number): { price: number; w
 
 export const ORDERABLE = SHOPS.filter((s) => s.orderable)
 export const shopBySlug = (slug: string) => SHOPS.find((s) => s.slug === slug)
-export const shopByHost = (host: string) => SHOPS.find((s) => host.split(':')[0] === s.host)
+// tesco.localhost locally, tesco.freqpay.app on the public demo: the first label picks the shop.
+export const shopByHost = (host: string) => {
+  const h = host.split(':')[0]
+  return SHOPS.find((s) => h === s.host || (h.includes('.') && h.split('.')[0] === s.slug && !h.endsWith('.localhost')))
+}
 export const shopByName = (name: string) => SHOPS.find((s) => s.name === name)
 export const shopUrl = (shop: Shop) => `http://${shop.host}:3000`
 

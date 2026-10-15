@@ -1,0 +1,9 @@
+.env*
+docs
+logs
+logs-*.txt
+data
+.superpowers
+.next
+node_modules
+tsconfig.tsbuildinfo

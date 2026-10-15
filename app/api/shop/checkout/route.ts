@@ -3,6 +3,7 @@ import { shopByHost, shopUrl } from '@/lib/shops'
 import { findIssuingCard, stripe } from '@/lib/stripe'
 import { readStore, updateStore, type Order } from '@/lib/store'
 import { parseBasket, priceBasket } from '@/lib/basket'
+import { PUBLIC_DEMO } from '@/lib/demo'
 
 // The shop's checkout. In production this would go to the shop's payment processor and on to the
 // card network. In sandbox the shop server plays the card network: it asks Stripe Issuing to
@@ -15,6 +16,7 @@ const MCC: Record<string, 'grocery_stores_supermarkets' | 'wholesale_clubs' | 's
 }
 
 export async function POST(req: NextRequest) {
+  if (PUBLIC_DEMO) return new NextResponse('checkout is disabled in the public demo', { status: 403 })
   const shop = shopByHost(req.headers.get('host') ?? '')
   if (!shop || !shop.orderable) return new NextResponse('this shop does not sell online', { status: 404 })
   const base = shopUrl(shop)
