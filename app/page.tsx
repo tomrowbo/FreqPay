@@ -210,6 +210,8 @@ function Receipt({ s, week, order, onClose }: { s: State; week: Week; order: Sup
         </table>
         {(rec?.id ?? order.orderId ?? '').startsWith('ord_demo_')
           ? <div className="fp-note small">Paid from the agent wallet. Public demo: placed instantly with the same plan the agent makes. The live agent and Stripe&apos;s real-time card checks run in the recorded demo.</div>
+          : (order.authorizationId ?? rec?.authorizationId ?? '').startsWith('pi_')
+          ? <div className="fp-note small">Paid from the agent wallet with a Stripe shared payment token, minted only after FreqPay&apos;s policy approved it and limited to exactly this amount for 15 minutes. Payment {order.authorizationId ?? rec?.authorizationId}. No card number changed hands.</div>
           : <div className="fp-note small">Paid from the agent wallet with Stripe Issuing card ••{s.card?.last4 ?? '0005'}. Authorization {order.authorizationId ?? rec?.authorizationId ?? '—'}: approved in real time because it matched the plan to the penny.</div>}
         <div className="fp-row"><button className="fp-btn sm ghost" onClick={() => window.print()}>Print</button></div>
       </div>

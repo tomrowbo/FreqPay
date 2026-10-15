@@ -31,6 +31,11 @@ export default async function CheckoutPage({ params, searchParams }: { params: P
           <input id="postcode" name="postcode" autoComplete="postal-code" required />
           <p><button className="btn" type="submit" id="pay-button" disabled={b.lines.length === 0 || b.belowMinimum}>Pay {formatGBP(b.total)}</button></p>
         </form>
+        <form action="/api/shop/checkout" method="post" id="agent-checkout" style={{ borderTop: '1px solid #e7e5e4', marginTop: 12, paddingTop: 8 }}>
+          <label htmlFor="agent-token">Or pay with an AI agent&apos;s Stripe shared payment token</label>
+          <input id="agent-token" name="agentToken" placeholder="spt_..." />
+          <p><button className="btn" type="submit" id="pay-token-button" disabled={b.lines.length === 0 || b.belowMinimum}>Pay {formatGBP(b.total)} with agent token</button></p>
+        </form>
         {b.belowMinimum && <p className="bad">Minimum order is {formatGBP(b.minimum)}.</p>}
         <p className="muted">Sandbox: card payments are authorised against Stripe Issuing test mode.</p>
       </div>
