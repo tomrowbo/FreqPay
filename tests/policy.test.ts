@@ -45,4 +45,8 @@ describe('weekLabel', () => {
     expect(weekLabel(5)).toBe('w/c 30 Nov')
     expect(weekLabel(6)).toBe('w/c 7 Dec')
   })
+  it('declines a charge the agent wallet cannot cover, and approves it after a top-up', () => {
+    expect(decideAuthorization({ ...base, merchant: 'Asda', amount: 7906, walletPence: 5000 }).reason).toBe('the agent wallet has £50.00, not enough for £79.06: top it up')
+    expect(decideAuthorization({ ...base, merchant: 'Asda', amount: 7906, walletPence: 7906 }).approved).toBe(true)
+  })
 })

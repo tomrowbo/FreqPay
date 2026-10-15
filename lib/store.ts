@@ -62,6 +62,7 @@ export interface AuthLog { id: string; amount: number; merchant: string; approve
 export interface Store {
   profile: Profile
   subscriptions?: Subscription[] // none = the profile's list, every week
+  wallet?: { balancePence: number; topups: { id: string; amount: number; t: number; card: string }[] } // the agent's prepaid budget
   weekIndex: number // last started demo week
   weeks: Week[]
   events: RunEvent[]

@@ -25,7 +25,7 @@ export default function Landing({ onIn }: { onIn: () => void }) {
         <div>
           <span className="lp-badge"><span className="fp-dot" style={{ color: 'var(--good)' }} /> Built on Stripe Issuing · powered by Claude</span>
           <h1 className="fp-h1">The office shop that <span>does itself.</span></h1>
-          <p className="fp-lede">Tell FreqPay what your office gets through. On your schedule, an AI agent compares seven UK shops that deliver, buys from the cheapest mix after delivery charges, and pays with a company card that only approves its plan.</p>
+          <p className="fp-lede">Tell FreqPay what your office gets through. On your schedule, an AI agent compares ten UK shops that deliver, buys from the cheapest mix after delivery charges, and pays with a company card that only approves its plan.</p>
           {signIn}
           {err && <p className="fp-bad small">{err}</p>}
           <p className="fp-muted small">No password, no card details. Sandbox demo: no real orders or payments.</p>
@@ -53,14 +53,14 @@ export default function Landing({ onIn }: { onIn: () => void }) {
         <h2 className="lp-h2">Set it up once. It shops every week.</h2>
         <div className="lp-steps">
           <div className="lp-step"><span className="lp-num">1</span><b>Tell us your demand</b><p>&ldquo;Every week: 72 cans of Coke Zero, 600 tea bags, 60 bananas. Cleaning every two weeks.&rdquo; Claude turns it into a priced basket from what the shops actually sell.</p></div>
-          <div className="lp-step"><span className="lp-num">2</span><b>The agent compares seven shops</b><p>It browses Tesco, Sainsbury&apos;s, Asda, Ocado, Iceland, Costco and Viking, checks every product against your allergies and brands, and finds the cheapest split, delivery included.</p></div>
+          <div className="lp-step"><span className="lp-num">2</span><b>The agent compares ten shops</b><p>It browses Tesco, Sainsbury&apos;s, Asda, Ocado, Iceland, Waitrose, Morrisons, Co-op, Costco and Viking, checks every product against your allergies and brands, and finds the cheapest split, delivery included.</p></div>
           <div className="lp-step"><span className="lp-num">3</span><b>The card pays only the plan</b><p>Each shop is paid with its own Stripe Issuing card. A real-time check approves a charge only if it matches the plan to the penny. Everything else is declined.</p></div>
         </div>
       </section>
 
       <section className="lp-band">
         <div className="lp-stat"><b>£1,800</b><span>saved a year for a 60-person office (£35 a week vs one supermarket + Viking)</span></div>
-        <div className="lp-stat"><b>7 shops</b><span>and about 200 products compared every delivery, delivery fees included</span></div>
+        <div className="lp-stat"><b>10 shops</b><span>and about 290 products compared every delivery, delivery fees included</span></div>
         <div className="lp-stat"><b>32</b><span>products a week rejected for nut allergies and brand rules</span></div>
         <div className="lp-stat"><b>£0</b><span>approved that didn&apos;t match the plan</span></div>
       </section>

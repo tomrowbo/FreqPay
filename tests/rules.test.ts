@@ -54,8 +54,8 @@ describe('catalogue plans (what the demo will show)', () => {
       expect(plan.savings).toBeGreaterThan(0)
     }
   })
-  it('only lists shops that deliver to the office (no Lidl, no Aldi in London)', () => {
-    expect(SHOPS.map((s) => s.slug)).toEqual(['tesco', 'sainsburys', 'asda', 'ocado', 'iceland', 'costco', 'viking'])
+  it('only lists shops that deliver to the office (no Lidl, no Aldi in London; Co-op, Morrisons and Waitrose deliver)', () => {
+    expect(SHOPS.map((s) => s.slug)).toEqual(['tesco', 'sainsburys', 'asda', 'ocado', 'iceland', 'waitrose', 'morrisons', 'coop', 'costco', 'viking'])
     expect(SHOPS.every((s) => s.orderable && s.delivery.tiers.length > 0)).toBe(true)
   })
   it('buys around stock-outs: Asda is out of Oatly in week 2, Iceland out of toilet roll in week 3', () => {

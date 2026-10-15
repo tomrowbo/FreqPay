@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     weekIndex: s.weekIndex,
     orders: s.orders,
     planned: week?.orders ?? [],
+    walletPence: s.wallet?.balancePence,
   })
   // Send a fixed Content-Length: with Next's default chunked encoding, replies relayed through
   // `stripe listen` intermittently came back to Stripe as webhook_error (25% in testing).

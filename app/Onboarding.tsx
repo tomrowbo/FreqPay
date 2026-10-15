@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Profile } from '@/lib/rules'
 import type { WeekPlan } from '@/lib/plan'
 import { LINE_EMOJI, LINE_IMAGES } from '@/lib/images'
@@ -38,48 +38,77 @@ export function Photo({ category, productId, size = 96 }: { category: string; pr
   return <img className="fp-photo" src={img.url} alt="" title={img.credit} onError={() => setFailed(true)} style={{ height: size }} />
 }
 
-// First time: the office's demand becomes its first subscription (and sets team, budget, allergies).
-// Later: `account` says who the office is, so a short "every 2 weeks: …" is enough.
+// The setup flow, each thing asked once. First time: office -> needs -> basket -> wallet (Stripe
+// Checkout top-up) -> start. Adding a subscription later: needs -> basket -> start.
+const FIRST_STEPS = ['Your office', 'What you need', 'Your basket', 'Agent wallet']
+const ADD_STEPS = ['What you need', 'Your basket']
+
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
-  const [form, setForm] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD', budget: '450', allergies: 'nuts (two people)', name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
+  const steps = account ? ADD_STEPS : FIRST_STEPS
+  const [step, setStep] = useState(0)
+  const [office, setOffice] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD', allergies: 'nuts' })
+  const [sub, setSub] = useState({ name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
   const [rows, setRows] = useState<Row[]>(account ? CLEANING : KITCHEN)
-  const set = (k: keyof typeof form, v: string | number) => setForm({ ...form, [k]: v })
-  const setRow = (i: number, k: keyof Row, v: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  const [budget, setBudget] = useState('450')
+  const [topup, setTopup] = useState(90000)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [wallet, setWallet] = useState<{ card: string; balancePence: number } | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const [step, setStep] = useState<1 | 2>(1)
+  const setRow = (i: number, k: keyof Row, v: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  const name = steps[step]
 
-  async function call(body: Record<string, unknown>, label: string) {
+  // Back from Stripe Checkout (?funded=<session>): restore the setup and credit the wallet.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('funded')
+    if (!q || account) return
+    window.history.replaceState({}, '', '/')
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('fp-setup') ?? 'null')
+      if (saved) { setOffice(saved.office); setSub(saved.sub); setRows(saved.rows); setBudget(saved.budget); setTopup(saved.topup); setDraft(saved.draft); setStep(3) }
+    } catch {}
+    if (q === 'cancel') return setError('Top-up cancelled. Your basket is still here.')
+    setBusy('Confirming your top-up with Stripe…')
+    fetch(`/api/billing?session_id=${encodeURIComponent(q)}`).then((r) => r.json()).then((r) => { setBusy(''); if (r.error) setError(r.error); else setWallet(r) })
+  }, [account])
+
+  async function call(body: Record<string, unknown>, label: string, next?: number) {
     setBusy(label); setError('')
     try {
       const r = await fetch('/api/onboard', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json())
-      if (r.error) setError(r.error)
-      else setDraft((d) => {
-        const fresh = 'prompt' in body
-        const profile = fresh && !account ? { ...r.profile, team: `${form.company} (${form.headcount} people)`, budgetPence: Math.round(Number(form.budget) * 100) || r.profile.budgetPence } : r.profile
-        if (fresh) setStep(2)
-        return { ...r, profile, name: fresh ? form.name : r.name ?? d?.name, everyWeeks: fresh ? form.every : r.everyWeeks ?? d?.everyWeeks ?? 1 }
-      })
+      if (r.error) return setError(r.error)
+      setDraft(r)
+      if (next !== undefined) setStep(next)
     } finally { setBusy('') }
   }
-  // The form becomes the same plain-language demand Claude already reads reliably.
+  // The form becomes the plain-language demand Claude already reads reliably (quantities exact).
   function draftIt() {
     const items = rows.filter((r) => r.name.trim() && Number(r.qty) > 0).map((r) => `- ${r.qty} ${r.unit} ${r.name}${r.note.trim() ? ` (${r.note.trim()})` : ''}`).join('\n')
-    const often = FREQUENCIES.find((f) => f.weeks === form.every)?.label.toLowerCase() ?? 'every week'
+    const often = FREQUENCIES.find((f) => f.weeks === sub.every)?.label.toLowerCase() ?? 'every week'
     const who = account
       ? `${account.team}. Weekly budget £${(account.budgetPence / 100).toFixed(0)}. Allergies: ${account.allergies.join(', ') || 'none'}.`
-      : `${form.company}, a ${form.headcount}-person office. Allergies: ${form.allergies || 'none'}. Keep it under £${form.budget} a week.`
-    void call({ prompt: `${who}\nSubscription "${form.name}", delivered ${often}. Per delivery we need:\n${items}` }, 'Drafting your basket…')
+      : `${office.company}, a ${office.headcount}-person office. Allergies: ${office.allergies || 'none'}. Keep it under £${budget} a week.`
+    void call({ prompt: `${who}\nSubscription "${sub.name}", delivered ${often}. Per delivery we need:\n${items}` }, 'Pricing your basket across the shops…', steps.indexOf('Your basket'))
   }
   const reprice = (profile: Profile) => draft && void call({ profile, notCovered: draft.notCovered, assumptions: draft.assumptions }, 'Re-pricing…')
   const setQty = (id: string, qty: number) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.map((l) => (l.id === id ? { ...l, qty } : l)) })
   const remove = (id: string) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.filter((l) => l.id !== id) })
-  async function confirm() {
-    const d = draft!
-    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: d.name, everyWeeks: d.everyWeeks, lines: d.profile.lines, profile: d.profile, address: form.address }) }).then((x) => x.json())
+
+  const budgetPence = account?.budgetPence ?? (Math.round(Number(budget) * 100) || 0)
+  const profile = (): Profile => ({ ...draft!.profile, team: account?.team ?? `${office.company} (${office.headcount} people)`, budgetPence, allergies: account?.allergies ?? office.allergies.split(',').map((x) => x.trim()).filter(Boolean) })
+  async function start() {
+    setBusy('Starting…'); setError('')
+    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: sub.name, everyWeeks: sub.every, lines: draft!.profile.lines, profile: profile(), address: office.address }) }).then((x) => x.json())
+    setBusy('')
     if (r.error) setError(r.error)
-    else onDone()
+    else { try { sessionStorage.removeItem('fp-setup') } catch {} ; onDone() }
+  }
+  async function payWithStripe() {
+    setBusy('Opening Stripe Checkout…'); setError('')
+    try { sessionStorage.setItem('fp-setup', JSON.stringify({ office, sub, rows, budget, topup, draft })) } catch {}
+    const r = await fetch('/api/billing', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amountPence: topup }) }).then((x) => x.json())
+    if (r.url) window.location.href = r.url
+    else { setBusy(''); setError(r.error ?? 'Stripe is unavailable') }
   }
 
   const p = draft?.preview
@@ -89,102 +118,119 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
     const prod = SHOPS.find((x) => x.slug === o.shop)?.products.find((x) => x.id === it.id)
     if (prod) chosen[prod.category] = it.id
   }
-  const budget = account?.budgetPence ?? draft?.profile.budgetPence ?? 0
+  const often = FREQUENCIES.find((f) => f.weeks === sub.every)?.label.toLowerCase()
+  const status = <>{busy && <span className="fp-muted">{busy}</span>}{error && <span className="fp-bad">{error}</span>}</>
+
   return (
     <section className="fp-panel" id="onboarding">
-      {step === 1 && <>
-      <div className="fp-eyebrow">{account ? 'New subscription · step 1 of 2' : 'Step 1 of 2 · Your office'}</div>
-      <h2 className="fp-h2">{account ? 'What else should we keep stocked?' : 'Set up your office restock'}</h2>
-      <p className="fp-sub">List what you need per delivery. Add a note for anything that matters: a brand you insist on, a size, nut-free. We only buy things our shops actually sell.</p>
-      {!account && (
+      <ol className="fp-stepper">
+        {steps.map((t, i) => <li key={t} className={i === step ? 'on' : i < step ? 'done' : ''}><span>{i < step ? '✓' : i + 1}</span>{t}</li>)}
+      </ol>
+
+      {name === 'Your office' && <>
+        <h2 className="fp-h2">Tell us about your office</h2>
+        <p className="fp-sub">Where we deliver, and who we&apos;re buying for.</p>
         <div className="fp-form">
-          <label className="fp-field">Company<input className="fp-input" value={form.company} onChange={(e) => set('company', e.target.value)} /></label>
-          <label className="fp-field">People in the office<input className="fp-input" type="number" min={1} value={form.headcount} onChange={(e) => set('headcount', e.target.value)} /></label>
-          <label className="fp-field wide">Delivery address<input className="fp-input" value={form.address} onChange={(e) => set('address', e.target.value)} autoComplete="street-address" /></label>
-          <label className="fp-field">Weekly budget (£)<input className="fp-input" type="number" min={1} value={form.budget} onChange={(e) => set('budget', e.target.value)} /></label>
-          <label className="fp-field">Allergies<input className="fp-input" value={form.allergies} onChange={(e) => set('allergies', e.target.value)} placeholder="e.g. nuts, gluten" /></label>
+          <label className="fp-field">Company<input className="fp-input" value={office.company} onChange={(e) => setOffice({ ...office, company: e.target.value })} autoComplete="organization" /></label>
+          <label className="fp-field">People in the office<input className="fp-input" type="number" min={1} value={office.headcount} onChange={(e) => setOffice({ ...office, headcount: e.target.value })} /></label>
+          <label className="fp-field wide">Delivery address<input className="fp-input" value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} autoComplete="street-address" /></label>
+          <label className="fp-field wide">Allergies in the team<input className="fp-input" value={office.allergies} onChange={(e) => setOffice({ ...office, allergies: e.target.value })} placeholder="e.g. nuts, gluten" /><span className="fp-muted small" style={{ fontWeight: 400 }}>We never buy anything that contains them, or may contain them.</span></label>
         </div>
-      )}
-      <div className="fp-form" style={{ marginTop: 14 }}>
-        <label className="fp-field wide">Subscription name<input className="fp-input" value={form.name} onChange={(e) => set('name', e.target.value)} /></label>
-        <label className="fp-field">How often<select className="fp-input" value={form.every} onChange={(e) => set('every', Number(e.target.value))}>{FREQUENCIES.map((f) => <option key={f.weeks} value={f.weeks}>{f.label}</option>)}</select></label>
-      </div>
-      <div className="fp-table-form">
-        <div className="fp-tf-head"><span>Item</span><span>Quantity</span><span>Unit</span><span>Description</span><span /></div>
-        {rows.map((r, i) => (
-          <div key={i} className="fp-tf-row">
-            <input className="fp-input" value={r.name} onChange={(e) => setRow(i, 'name', e.target.value)} placeholder="e.g. Tea bags" aria-label="Item" />
-            <input className="fp-input" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, 'qty', e.target.value)} aria-label="Quantity needed" />
-            <input className="fp-input" value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)} placeholder="bags" aria-label="Unit" />
-            <input className="fp-input" value={r.note} onChange={(e) => setRow(i, 'note', e.target.value)} placeholder="Brand, size, nut-free…" aria-label="Description" />
-            <button className="fp-link" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove ${r.name}`}>✕</button>
-          </div>
-        ))}
-        <button className="fp-btn sm ghost" style={{ marginTop: 8 }} onClick={() => setRows([...rows, row('', '', '')])}>+ Add item</button>
-      </div>
-      <div className="fp-row">
-        <button className="fp-btn" onClick={draftIt} disabled={!!busy}>{draft ? 'Redraft my basket →' : 'Draft my basket →'}</button>
-        {draft && <button className="fp-btn ghost" onClick={() => setStep(2)} disabled={!!busy}>Back to the preview</button>}
-        {onCancel && <button className="fp-btn ghost" onClick={onCancel}>Cancel</button>}
-        <span className="fp-muted">{busy}</span>
-        {error && <span className="fp-bad">{error}</span>}
-      </div>
+        <div className="fp-row" style={{ marginTop: 20 }}>
+          <button className="fp-btn" onClick={() => setStep(1)} disabled={!office.company.trim() || !office.address.trim()}>Continue</button>
+        </div>
       </>}
 
-      {step === 2 && draft && p && (
-        <div>
-          <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
-            <div className="fp-eyebrow" style={{ margin: 0 }}>{account ? 'New subscription · step 2 of 2' : 'Step 2 of 2 · Check it'}</div>
-            <button className="fp-btn sm ghost" onClick={() => setStep(1)}>← Back to step 1</button>
-          </div>
-          <h3 className="fp-h3">Here&apos;s what each delivery will look like. Does this look about right?</h3>
-          <div className="fp-row" style={{ alignItems: 'flex-end' }}>
-            <label className="fp-field" style={{ flex: 2 }}>Name<input className="fp-input" value={draft.name ?? ''} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-            <label className="fp-field" style={{ flex: 1 }}>How often
-              <select className="fp-input" value={draft.everyWeeks} onChange={(e) => setDraft({ ...draft, everyWeeks: Number(e.target.value) })}>
-                {FREQUENCIES.map((f) => <option key={f.weeks} value={f.weeks}>{f.label}</option>)}
-              </select>
-            </label>
-          </div>
-          <p className="fp-summary">
-            About <strong>{gbp(p.total)}</strong> per delivery, delivery included{p.orders.length > 1 ? `, split across ${p.orders.map((o) => SHOP_NAMES[o.shop]).join(' + ')}` : p.orders[0] ? ` from ${SHOP_NAMES[p.orders[0].shop]}` : ''}
-            {p.savings ? <> · <span className="fp-ok">{gbp(p.savings)} less than one supermarket + Viking</span></> : null}
-            {draft.profile.allergies.length ? ` · avoiding: ${draft.profile.allergies.join(', ')}` : ''}
-          </p>
-          {p.total > budget && <p className="fp-bad">That&apos;s over the {gbp(budget)} weekly budget. Lower some quantities.</p>}
-          <div className="fp-items">
-            {draft.profile.lines.map((l) => {
-              const c = p.comparison.find((x) => x.lineId === l.id)
-              const cell = c?.chosenShop ? c.perShop[c.chosenShop] : null
-              return (
-                <div key={l.id} className="fp-item">
-                  <Photo category={l.category} productId={chosen[l.category]} />
-                  <div className="fp-item-name">{l.name}</div>
-                  <div className="fp-row tight">
-                    <input key={`${l.id}-${l.qty}`} className="fp-input qty" type="number" min={1} defaultValue={l.qty} onBlur={(e) => Number(e.target.value) !== l.qty && setQty(l.id, Math.max(1, Math.round(Number(e.target.value))))} aria-label={`Quantity of ${l.name}`} />
-                    <span className="fp-muted">{l.unit}</span>
-                  </div>
-                  <div className="fp-muted small">{l.brand ? `${l.brand} only` : 'any brand'}</div>
-                  <div className="small">{cell ? <>≈ {gbp(cell.cost)} · {SHOP_NAMES[c!.chosenShop]}</> : <span className="fp-bad">no supplier</span>}</div>
-                  <button className="fp-link" onClick={() => remove(l.id)}>Remove</button>
-                </div>
-              )
-            })}
-          </div>
-          {(draft.assumptions.length > 0 || draft.notCovered.length > 0) && (
-            <div className="small" style={{ marginTop: 12 }}>
-              {draft.assumptions.length > 0 && <div className="fp-muted">I assumed: {draft.assumptions.join('; ')}.</div>}
-              {draft.notCovered.length > 0 && <div className="fp-bad">Our shops don&apos;t stock: {draft.notCovered.join(', ')}.</div>}
+      {name === 'What you need' && <>
+        <h2 className="fp-h2">{account ? 'Add a subscription' : 'What do you need?'}</h2>
+        <p className="fp-sub">One list per delivery rhythm. Add a description for anything that matters: a brand you insist on, a size.</p>
+        <div className="fp-form">
+          <label className="fp-field wide">Subscription name<input className="fp-input" value={sub.name} onChange={(e) => setSub({ ...sub, name: e.target.value })} /></label>
+          <label className="fp-field">Delivered<select className="fp-input" value={sub.every} onChange={(e) => setSub({ ...sub, every: Number(e.target.value) })}>{FREQUENCIES.map((f) => <option key={f.weeks} value={f.weeks}>{f.label}</option>)}</select></label>
+        </div>
+        <div className="fp-table-form">
+          <div className="fp-tf-head"><span>Item</span><span>Quantity</span><span>Unit</span><span>Description</span><span /></div>
+          {rows.map((r, i) => (
+            <div key={i} className="fp-tf-row">
+              <input className="fp-input" value={r.name} onChange={(e) => setRow(i, 'name', e.target.value)} placeholder="e.g. Tea bags" aria-label="Item" />
+              <input className="fp-input" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, 'qty', e.target.value)} aria-label="Quantity" />
+              <input className="fp-input" value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)} placeholder="bags" aria-label="Unit" />
+              <input className="fp-input" value={r.note} onChange={(e) => setRow(i, 'note', e.target.value)} placeholder="Brand, size…" aria-label="Description" />
+              <button className="fp-link" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove ${r.name}`}>✕</button>
             </div>
-          )}
-          <div className="fp-row" style={{ marginTop: 16 }}>
-            <button className="fp-btn ghost" onClick={() => setStep(1)}>← Back</button>
-            <button className="fp-btn" onClick={confirm} disabled={!!busy || !p.orders.length || p.total > budget}>Start this subscription</button>
-            <span className="fp-muted">{busy}</span>
-            {error && <span className="fp-bad">{error}</span>}
+          ))}
+          <button className="fp-btn sm ghost" style={{ marginTop: 8 }} onClick={() => setRows([...rows, row('', '', '')])}>+ Add item</button>
+        </div>
+        <div className="fp-row" style={{ marginTop: 20 }}>
+          {step > 0 ? <button className="fp-btn ghost" onClick={() => setStep(step - 1)}>Back</button> : onCancel && <button className="fp-btn ghost" onClick={onCancel}>Cancel</button>}
+          <button className="fp-btn" onClick={draftIt} disabled={!!busy || !rows.some((r) => r.name.trim() && Number(r.qty) > 0)}>Find the best prices</button>
+          {status}
+        </div>
+      </>}
+
+      {name === 'Your basket' && draft && p && <>
+        <h2 className="fp-h2">Your basket: {sub.name}</h2>
+        <p className="fp-sub">Delivered {often} to {account?.address ?? office.address}. Best prices across {SHOPS.length} shops, delivery included.</p>
+        <div className="fp-basket-sum">
+          <div><div className="fp-muted small">Each delivery</div><b>{gbp(p.total)}</b></div>
+          <div><div className="fp-muted small">From</div><b>{p.orders.map((o) => SHOP_NAMES[o.shop]).join(' + ') || '—'}</b></div>
+          {p.savings ? <div><div className="fp-muted small">You save</div><b className="fp-ok">{gbp(p.savings)}</b><div className="fp-muted small">vs one supermarket + Viking</div></div> : null}
+        </div>
+        <div className="fp-items">
+          {draft.profile.lines.map((l) => {
+            const c = p.comparison.find((x) => x.lineId === l.id)
+            const cell = c?.chosenShop ? c.perShop[c.chosenShop] : null
+            return (
+              <div key={l.id} className="fp-item">
+                <Photo category={l.category} productId={chosen[l.category]} />
+                <div className="fp-item-name">{cell?.product ?? l.name}</div>
+                <div className="fp-row tight">
+                  <input key={`${l.id}-${l.qty}`} className="fp-input qty" type="number" min={1} defaultValue={l.qty} onBlur={(e) => Number(e.target.value) !== l.qty && setQty(l.id, Math.max(1, Math.round(Number(e.target.value))))} aria-label={`Quantity of ${l.name}`} />
+                  <span className="fp-muted">{l.unit}</span>
+                </div>
+                <div className="small">{cell ? <>{gbp(cell.cost)} · {SHOP_NAMES[c!.chosenShop]}</> : <span className="fp-bad">not available</span>}</div>
+                <button className="fp-link" onClick={() => remove(l.id)}>Remove</button>
+              </div>
+            )
+          })}
+        </div>
+        {draft.notCovered.length > 0 && <p className="fp-bad small">Our shops don&apos;t sell: {draft.notCovered.join(', ')}.</p>}
+        <div className="fp-row" style={{ marginTop: 20 }}>
+          <button className="fp-btn ghost" onClick={() => setStep(step - 1)}>Edit items</button>
+          {account
+            ? <button className="fp-btn" onClick={start} disabled={!!busy || !p.orders.length}>Start this subscription</button>
+            : <button className="fp-btn" onClick={() => setStep(step + 1)} disabled={!!busy || !p.orders.length}>Continue</button>}
+          {status}
+        </div>
+      </>}
+
+      {name === 'Agent wallet' && draft && p && <>
+        <h2 className="fp-h2">Top up your agent&apos;s wallet</h2>
+        <p className="fp-sub">Your agent pays each shop with its own Stripe card. It can only spend what&apos;s in its wallet, and never more than your weekly limit.</p>
+        <div className="fp-form">
+          <label className="fp-field">Weekly spending limit (£)<input className="fp-input" type="number" min={1} value={budget} onChange={(e) => setBudget(e.target.value)} /><span className="fp-muted small" style={{ fontWeight: 400 }}>This basket is about {gbp(p.total)} per delivery.</span></label>
+          <div className="fp-field wide">Top up
+            <div className="fp-chips">
+              {[budgetPence, budgetPence * 2, budgetPence * 4].filter((x) => x >= 1000).map((x, i) => (
+                <button key={i} className={`fp-chip ${topup === x ? 'sel' : ''}`} onClick={() => setTopup(x)}>{gbp(x)}<span>{['1 week', '2 weeks', '4 weeks'][i]}</span></button>
+              ))}
+            </div>
           </div>
         </div>
-      )}
+        <div className="fp-wallet">
+          {wallet
+            ? <><div><div className="fp-muted small">Agent wallet</div><div className="fp-wallet-bal">{gbp(wallet.balancePence)}</div><div className="fp-ok small">✓ Paid with {wallet.card} via Stripe</div></div>
+                <button className="fp-btn ghost" onClick={payWithStripe} disabled={!!busy}>Top up more</button></>
+            : <><div><div className="fp-muted small">Agent wallet</div><div className="fp-wallet-bal">£0.00</div><div className="fp-muted small">Secure payment by Stripe. Test mode: card 4242 4242 4242 4242, any future date, any CVC.</div></div>
+                <button className="fp-btn" onClick={payWithStripe} disabled={!!busy || topup < 1000}>Top up {gbp(topup)} with Stripe</button></>}
+        </div>
+        <div className="fp-row" style={{ marginTop: 20 }}>
+          <button className="fp-btn ghost" onClick={() => setStep(step - 1)}>Back</button>
+          <button className="fp-btn" onClick={start} disabled={!!busy || !wallet || p.total > budgetPence}>Start my subscription</button>
+          {p.total > budgetPence && <span className="fp-bad small">The basket is over the weekly limit.</span>}
+          {status}
+        </div>
+      </>}
     </section>
   )
 }

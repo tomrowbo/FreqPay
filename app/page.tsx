@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Store, Week } from '@/lib/store'
+import type { Store, Week, SupplierOrder } from '@/lib/store'
 import { weekLabel } from '@/lib/week'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES, frequencyLabel, isDue, nextDue, type Subscription } from '@/lib/subscriptions'
@@ -38,19 +38,16 @@ export default function Home() {
 function App({ s, reload }: { s: State; reload: () => void }) {
   const [adding, setAdding] = useState(false)
   const [msg, setMsg] = useState('')
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
+  const [receipt, setReceipt] = useState<{ week: Week; order: SupplierOrder } | null>(null)
+  const [topping, setTopping] = useState(false)
   const subs = s.subscriptions ?? []
-  const current = s.weeks.at(-1)
   const running = !!s.agent.running
-  const countdown = s.agent.nextRunAt ? Math.max(0, Math.round((s.agent.nextRunAt - now) / 1000)) : null
+  const current = s.weeks.at(-1)
   const done = s.weeks.filter((m) => m.orders?.some((o) => o.status === 'paid'))
   const spent = done.reduce((n, m) => n + (m.orders ?? []).filter((o) => o.status === 'paid').reduce((x, o) => x + o.total, 0), 0)
   const saved = done.reduce((n, m) => n + (m.status === 'bought' ? m.savings ?? 0 : 0), 0)
   const upcoming = s.weekIndex + 1
+  const wallet = s.wallet?.balancePence ?? 0
   // The exact pack bought for each item in the latest deliveries, so cards show that shop's photo.
   const bought: Record<string, string> = {}
   for (const m of s.weeks) for (const o of m.orders ?? []) for (const it of o.items) {
@@ -58,35 +55,64 @@ function App({ s, reload }: { s: State; reload: () => void }) {
     if (prod) bought[prod.category] = it.id
   }
 
-  async function runNow() {
-    setMsg('Starting…')
+  // Back from a Stripe top-up on the dashboard (?funded=<session>): credit the wallet.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('funded')
+    if (!q) return
+    window.history.replaceState({}, '', '/')
+    if (q === 'cancel') return setMsg('Top-up cancelled.')
+    fetch(`/api/billing?session_id=${encodeURIComponent(q)}`).then((r) => r.json()).then((r) => { setMsg(r.error ?? `Wallet topped up with ${gbp(r.amount)} (${r.card}).`); reload() })
+  }, [])
+
+  async function simulate() {
+    setMsg('')
     const r = await post('/api/run')
-    setMsg(r.error ?? (r.started ? 'The agent is shopping' : r.message ?? ''))
+    setMsg(r.error ? 'The agent isn’t running in this demo environment.' : r.started ? '' : r.message ?? '')
   }
+  async function topUp(amount: number) {
+    setTopping(true)
+    const r = await post('/api/billing', { amountPence: amount })
+    if (r.url) window.location.href = r.url
+    else { setTopping(false); setMsg(r.error ?? 'Stripe is unavailable') }
+  }
+  const activity = [
+    ...(s.wallet?.topups ?? []).map((t) => ({ t: t.t, label: `Top-up · ${t.card}`, amount: t.amount })),
+    ...s.orders.filter((o) => o.status === 'approved').map((o) => ({ t: o.createdAt, label: `${shopOf(o.shop)?.name ?? o.shop} · ${weekLabel(o.weekIndex)}`, amount: -o.total })),
+  ].sort((a, b) => b.t - a.t).slice(0, 8)
 
   return (
     <>
       <div className="fp-section" style={{ marginTop: 8 }}>
         <div>
           <div className="fp-eyebrow">{s.profile.team}</div>
-          <h2 style={{ fontSize: 30 }}>Your subscriptions</h2>
+          <h2 style={{ fontSize: 30 }}>Dashboard</h2>
         </div>
         <div className="fp-row" style={{ marginTop: 0 }}>
-          {running
-            ? <span className="fp-pill run fp-live"><span className="fp-dot" /> Shopping for {current?.label}…</span>
-            : <span className="fp-muted">{countdown !== null ? `Next delivery run (${weekLabel(upcoming)}) in ${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')}` : ''}</span>}
-          <button className="fp-btn sm" onClick={runNow} disabled={running}>Run next delivery now</button>
+          {running && <span className="fp-pill run fp-live"><span className="fp-dot" /> Placing {current?.label} orders…</span>}
+          <button className="fp-btn" onClick={simulate} disabled={running}>Simulate next week</button>
         </div>
       </div>
       {msg && <p className="fp-muted small" style={{ marginTop: -4 }}>{msg}</p>}
 
-      <div className="fp-stats">
-        <div className="fp-stat"><div className="k">Next delivery</div><div className="v">{running ? current?.label : weekLabel(upcoming)}</div><div className="fp-muted small">{subs.filter((x) => isDue(x, running ? s.weekIndex : upcoming)).map((x) => x.name).join(' + ') || 'nothing due'}</div></div>
-        <div className="fp-stat"><div className="k">Weekly budget</div><div className="v">{gbp(s.profile.budgetPence)}</div><div className="fp-muted small">£{((s.card?.limitPence ?? 0) / 100).toFixed(0)} max per shop charge</div></div>
-        <div className="fp-stat"><div className="k">Spent so far</div><div className="v">{gbp(spent)}</div><div className="fp-muted small">{done.length} {done.length === 1 ? 'delivery' : 'deliveries'}</div></div>
-        <div className="fp-stat"><div className="k">Saved so far</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small">vs one supermarket + Viking</div></div>
+      <div className="fp-dash-top">
+        <div className="fp-wallet" style={{ marginTop: 0 }}>
+          <div>
+            <div className="fp-muted small">Agent wallet</div>
+            <div className="fp-wallet-bal">{gbp(wallet)}</div>
+            <div className="fp-muted small">Limit {gbp(s.profile.budgetPence)} a week · £{((s.card?.limitPence ?? 30000) / 100).toFixed(0)} max per charge · card ••{s.card?.last4 ?? '0005'}</div>
+          </div>
+          <div className="fp-row" style={{ marginTop: 0 }}>
+            {[s.profile.budgetPence, s.profile.budgetPence * 2].map((x) => <button key={x} className="fp-btn ghost" onClick={() => topUp(x)} disabled={topping}>Top up {gbp(x)}</button>)}
+          </div>
+        </div>
+        <div className="fp-stats" style={{ margin: 0 }}>
+          <div className="fp-stat"><div className="k">Next delivery</div><div className="v">{running ? current?.label : weekLabel(upcoming)}</div><div className="fp-muted small">{subs.filter((x) => isDue(x, running ? s.weekIndex : upcoming)).map((x) => x.name).join(' + ') || 'nothing due'}</div></div>
+          <div className="fp-stat"><div className="k">Spent</div><div className="v">{gbp(spent)}</div><div className="fp-muted small">{done.length} {done.length === 1 ? 'week' : 'weeks'}, delivery included</div></div>
+          <div className="fp-stat"><div className="k">Saved</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small">vs one supermarket + Viking</div></div>
+        </div>
       </div>
 
+      <div className="fp-section"><h2>Your subscriptions</h2></div>
       <div className="fp-subs">
         {subs.map((sub) => <SubCard key={sub.id} sub={sub} week={s.weekIndex} reload={reload} bought={bought} />)}
         {!adding && (
@@ -97,12 +123,88 @@ function App({ s, reload }: { s: State; reload: () => void }) {
       </div>
       {adding && <div style={{ marginTop: 16 }}><Onboarding account={s.profile} onDone={() => { setAdding(false); reload() }} onCancel={() => setAdding(false)} /></div>}
 
-      <Account s={s} reload={reload} />
+      <div className="fp-section"><h2>Deliveries</h2></div>
+      {s.weeks.length === 0 && <section className="fp-panel"><p className="fp-muted" style={{ margin: 0 }}>No deliveries yet. Press <b>Simulate next week</b> to watch the agent place this week&apos;s orders.</p></section>}
+      {[...s.weeks].reverse().map((m) => <Delivery key={m.runId} s={s} m={m} onReceipt={(order) => setReceipt({ week: m, order })} />)}
 
-      {current && <LatestWeek s={s} m={current} subs={subs} />}
+      <div className="fp-two">
+        <section className="fp-panel">
+          <h3 className="fp-h3">Wallet activity</h3>
+          {activity.length === 0 ? <p className="fp-muted small">No activity yet.</p> : (
+            <table className="fp-table"><tbody>
+              {activity.map((a, i) => <tr key={i}><td className="fp-muted">{new Date(a.t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td>{a.label}</td><td style={{ textAlign: 'right', fontWeight: 650 }} className={a.amount > 0 ? 'fp-ok' : ''}>{a.amount > 0 ? '+' : '−'}{gbp(Math.abs(a.amount))}</td></tr>)}
+            </tbody></table>
+          )}
+        </section>
+        <Settings s={s} reload={reload} />
+      </div>
 
-      <UnderTheHood s={s} />
+      {receipt && <Receipt s={s} week={receipt.week} order={receipt.order} onClose={() => setReceipt(null)} />}
     </>
+  )
+}
+
+function Delivery({ s, m, onReceipt }: { s: State; m: Week; onReceipt: (o: SupplierOrder) => void }) {
+  const live = m.status === 'running'
+  const last = s.events.filter((e) => e.runId === m.runId && (e.kind === 'pay' || e.kind === 'decision' || e.kind === 'step')).at(-1)
+  return (
+    <section className="fp-panel">
+      <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+        <div>
+          <b style={{ fontSize: 18 }}>{m.label}</b> <span className="fp-muted small">{m.includes?.join(' + ')}</span>
+        </div>
+        <div className="fp-row" style={{ marginTop: 0 }}>
+          {m.total !== undefined && <span>Paid <b>{gbp(m.total)}</b> incl. delivery{m.savings ? <> · <span className="fp-ok">saved {gbp(m.savings)}</span></> : null}</span>}
+          <span className={`fp-pill ${m.status === 'bought' ? 'on' : live ? 'run fp-live' : 'off'}`}><span className="fp-dot" />{m.status === 'bought' ? 'Delivered' : live ? 'Ordering' : m.status === 'nothing-bought' ? 'Nothing due' : m.status}</span>
+        </div>
+      </div>
+      {live && last && <div className="fp-muted small" style={{ marginTop: 8 }}>{last.text}</div>}
+      {m.orders && (
+        <div className="fp-week">
+          {m.orders.map((o) => (
+            <div key={o.shop} className="fp-order">
+              <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+                <img src={shopOf(o.shop)?.logo} alt={o.shopName} />
+                <span className={`fp-pill ${o.status === 'paid' ? 'on' : o.status === 'declined' ? 'off' : 'run'}`}>{o.status === 'planned' ? 'ordering' : o.status}</span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 750, marginTop: 8 }}>{gbp(o.total)}</div>
+              <div className="fp-muted small">{o.items.reduce((n, i) => n + (i.packs ?? 1), 0)} packs · delivery {o.delivery ? gbp(o.delivery) : 'free'}</div>
+              {o.declineReason && <div className="fp-bad small">{o.declineReason}</div>}
+              {o.status === 'paid' && <button className="fp-link" style={{ marginTop: 6 }} onClick={() => onReceipt(o)}>View receipt</button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {m.note && <div className="fp-note">{m.note}</div>}
+    </section>
+  )
+}
+
+function Receipt({ s, week, order, onClose }: { s: State; week: Week; order: SupplierOrder; onClose: () => void }) {
+  const shop = shopOf(order.shop)
+  const rec = s.orders.find((o) => o.weekIndex === week.index && o.shop === order.shop && o.status === 'approved')
+  return (
+    <div className="fp-modal" onClick={onClose}>
+      <div className="fp-receipt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Receipt from ${order.shopName}`}>
+        <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+          <img src={shop?.logo} alt={order.shopName} style={{ height: 30, maxWidth: 130, objectFit: 'contain' }} />
+          <button className="fp-link" onClick={onClose}>Close</button>
+        </div>
+        <h3 className="fp-h3" style={{ marginTop: 14, marginBottom: 2 }}>Receipt</h3>
+        <div className="fp-muted small">{order.shopName} · order {rec?.id ?? order.orderId ?? '—'} · {rec ? new Date(rec.createdAt).toLocaleString('en-GB') : week.label}</div>
+        <div className="fp-muted small">Deliver to {s.profile.address ?? s.profile.team}</div>
+        <table className="fp-table" style={{ marginTop: 12 }}>
+          <tbody>
+            {order.items.map((i) => <tr key={i.id}><td>{i.packs ?? 1} × {i.name}</td><td style={{ textAlign: 'right' }}>{gbp(i.price * (i.packs ?? 1))}</td></tr>)}
+            <tr><td className="fp-muted">Subtotal</td><td style={{ textAlign: 'right' }}>{gbp(order.subtotal)}</td></tr>
+            <tr><td className="fp-muted">Delivery</td><td style={{ textAlign: 'right' }}>{order.delivery ? gbp(order.delivery) : 'Free'}</td></tr>
+            <tr><td><b>Total</b></td><td style={{ textAlign: 'right' }}><b>{gbp(order.total)}</b></td></tr>
+          </tbody>
+        </table>
+        <div className="fp-note small">Paid from the agent wallet with Stripe Issuing card ••{s.card?.last4 ?? '0005'}. Authorization {order.authorizationId ?? rec?.authorizationId ?? '—'}: approved in real time because it matched the plan to the penny.</div>
+        <div className="fp-row"><button className="fp-btn sm ghost" onClick={() => window.print()}>Print</button></div>
+      </div>
+    </div>
   )
 }
 
@@ -154,147 +256,23 @@ function SubCard({ sub, week, reload, bought }: { sub: Subscription; week: numbe
   )
 }
 
-function Account({ s, reload }: { s: State; reload: () => void }) {
+function Settings({ s, reload }: { s: State; reload: () => void }) {
+  const [address, setAddress] = useState(s.profile.address ?? '')
   const [budget, setBudget] = useState((s.profile.budgetPence / 100).toFixed(2))
   const [allergies, setAllergies] = useState(s.profile.allergies.join(', '))
-  const [address, setAddress] = useState(s.profile.address ?? '')
   const [saved, setSaved] = useState(false)
   async function save() {
     await post('/api/profile', { budgetPence: Math.round(parseFloat(budget) * 100), allergies: allergies.split(',').map((x) => x.trim()).filter(Boolean), address })
     setSaved(true); reload()
   }
+  const edit = <T,>(f: (v: T) => void) => (v: T) => { f(v); setSaved(false) }
   return (
-    <section className="fp-panel" style={{ marginTop: 20 }}>
-      <div className="fp-row" style={{ marginTop: 0, alignItems: 'flex-end' }}>
-        <label className="fp-field" style={{ flex: 2 }}>Delivery address<input className="fp-input" value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} /></label>
-        <label className="fp-field" style={{ flex: 1 }}>Weekly budget (£)<input className="fp-input" value={budget} onChange={(e) => { setBudget(e.target.value); setSaved(false) }} /></label>
-        <label className="fp-field" style={{ flex: 2 }}>Team allergies (never bought, including "may contain")<input className="fp-input" value={allergies} onChange={(e) => { setAllergies(e.target.value); setSaved(false) }} /></label>
-        <button className="fp-btn ghost" onClick={save}>{saved ? 'Saved' : 'Save'}</button>
-      </div>
-    </section>
-  )
-}
-
-function LatestWeek({ s, m, subs }: { s: State; m: Week; subs: Subscription[] }) {
-  const events = s.events.filter((e) => e.runId === m.runId)
-  const included = m.includes ?? subs.filter((x) => isDue(x, m.index)).map((x) => x.name)
-  return (
-    <>
-      <div className="fp-section"><h2>Latest delivery · {m.label}</h2><span className={`fp-pill ${m.status === 'bought' ? 'on' : m.status === 'running' ? 'run' : 'off'}`}>{m.status === 'bought' ? 'Bought' : m.status === 'running' ? 'Shopping' : m.status}</span></div>
-      <section className="fp-panel">
-        <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
-          <span className="fp-muted">{included.length ? `Includes ${included.join(' + ')}` : ''}</span>
-          {m.total !== undefined && <span>Paid <b>{gbp(m.total)}</b> incl. delivery{m.bestSingleShop && <> · <span className="fp-ok">saved {gbp(m.savings)}</span> vs {shopOf(m.bestSingleShop.shop)?.name ?? m.bestSingleShop.shop} + Viking ({gbp(m.bestSingleShop.total)})</>}</span>}
-        </div>
-        {m.orders ? (
-          <div className="fp-week">
-            {m.orders.map((o) => (
-              <div key={o.shop} className="fp-order">
-                <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
-                  <img src={shopOf(o.shop)?.logo} alt={o.shopName} />
-                  <span className={`fp-pill ${o.status === 'paid' ? 'on' : o.status === 'declined' ? 'off' : 'run'}`}>{o.status}</span>
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 750, marginTop: 8 }}>{gbp(o.total)}</div>
-                <div className="fp-muted small">{o.items.length} items {gbp(o.subtotal)} + delivery {o.delivery ? gbp(o.delivery) : 'free'}</div>
-                {o.declineReason && <div className="fp-bad small">{o.declineReason}</div>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="log" style={{ marginTop: 12 }}>{events.slice(-12).map((e, i) => <div key={i}>{e.text}</div>)}{events.length === 0 && 'Starting…'}</div>
-        )}
-        {m.note && <div className="fp-note">🤖 {m.note}</div>}
-      </section>
-    </>
-  )
-}
-
-function UnderTheHood({ s }: { s: State }) {
-  const [msg, setMsg] = useState('')
-  const current = s.weeks.at(-1)
-  const events = current ? s.events.filter((e) => e.runId === current.runId) : []
-  async function policyTest(kind: 'rogue' | 'overcharge') {
-    setMsg(kind === 'rogue' ? 'Trying a £15 charge at GadgetMart (not an approved supplier)…' : 'A planned supplier tries to charge £5 more than the plan…')
-    const r = await post(`/api/policy-test?kind=${kind}`)
-    setMsg(r.approved ? 'Approved?!' : `Stripe declined ${r.merchant} ${gbp(r.amount)}: ${r.policyReason ?? r.reason}`)
-  }
-  return (
-    <details className="fp-details">
-      <summary>Under the hood: agent log, price comparison, card controls</summary>
-
-      <section className="fp-panel">
-        <h3 className="fp-h3">Agent log{current ? ` · ${current.label}` : ''}</h3>
-        <div className="log" id="live-log">
-          {events.length === 0 ? <div>Waiting for the agent…</div> : events.map((e, i) => (
-            <div key={i}><span style={{ opacity: 0.5 }}>{new Date(e.t).toLocaleTimeString()}</span> <span style={{ color: e.kind === 'error' ? '#fca5a5' : e.kind === 'check' ? '#fde68a' : e.kind === 'pay' ? '#86efac' : e.kind === 'decision' ? '#93c5fd' : '#e7e5e4' }}>[{e.kind}]</span> {e.text}</div>
-          ))}
-        </div>
-      </section>
-
-      <section className="fp-panel">
-        <h3 className="fp-h3">Company card (Stripe Issuing)</h3>
-        <div className="fp-muted small">Visa ••{s.card?.last4 ?? '····'} · {gbp(s.card?.limitPence)} limit per charge (set on the card in Stripe) · approved shops only · each charge must match the agent&apos;s plan to the penny · {gbp(s.profile.budgetPence)} a week</div>
-        <div className="fp-row">
-          <button className="fp-btn sm ghost" onClick={() => policyTest('rogue')}>Test: unknown merchant</button>
-          <button className="fp-btn sm ghost" onClick={() => policyTest('overcharge')}>Test: supplier overcharges £5</button>
-          <button className="fp-btn sm ghost" onClick={() => post('/api/reset').then(() => setMsg('Demo reset'))}>Reset demo</button>
-          <span className="small">{msg}</span>
-        </div>
-        <table className="fp-table" style={{ marginTop: 12 }}>
-          <thead><tr><th>Merchant</th><th>Amount</th><th>Decision</th></tr></thead>
-          <tbody>
-            {s.auths.slice(0, 8).map((a) => (
-              <tr key={a.id} title={a.id}><td>{a.merchant}</td><td>{gbp(a.amount)}</td><td className={a.approved ? 'fp-ok' : 'fp-bad'}>{a.approved ? 'approved' : 'declined'}{a.policyReason ? `: ${a.policyReason}` : a.reason && !a.approved ? `: ${a.reason}` : ''}</td></tr>
-            ))}
-            {s.auths.length === 0 && <tr><td colSpan={3} className="fp-muted">No card activity yet</td></tr>}
-          </tbody>
-        </table>
-      </section>
-
-      {[...s.weeks].reverse().map((m) => (
-        <section className="fp-panel" key={m.runId}>
-          <h3 className="fp-h3">{m.label} · {m.status}{m.total !== undefined ? ` · ${gbp(m.total)}` : ''}{m.savings ? ` · saved ${gbp(m.savings)}` : ''}</h3>
-          {m.comparison && (
-            <div className="fp-scroll">
-              <table className="fp-table">
-                <thead><tr><th>Item</th>{SHOPS.map((x) => <th key={x.slug} title={`${x.name} · ${x.kind}`} style={{ textAlign: 'center' }}><img src={x.logo} alt={x.name} style={{ height: 16, maxWidth: 60, objectFit: 'contain', display: 'block', margin: '0 auto 2px' }} /><div className="fp-muted" style={{ fontWeight: 400, fontSize: 10 }}>{x.orderable ? x.name : 'in-store only'}</div></th>)}</tr></thead>
-                <tbody>
-                  {m.comparison.map((c) => (
-                    <tr key={c.lineId}>
-                      <td>{c.line}</td>
-                      {SHOPS.map((x) => {
-                        const cell = c.perShop[x.slug]
-                        const chosen = c.chosenShop === x.slug
-                        // Price watch: same line, same product, last week
-                        const prev = s.weeks.find((pm) => pm.index === m.index - 1)?.comparison?.find((pc) => pc.lineId === c.lineId)?.perShop[x.slug]
-                        const change = cell && prev && prev.product === cell.product && prev.cost > 0 ? Math.round(((cell.cost - prev.cost) / prev.cost) * 100) : 0
-                        return <td key={x.slug} title={cell?.product} style={chosen ? { background: 'rgba(15,157,88,0.12)', fontWeight: 700 } : undefined}>{cell ? gbp(cell.cost) : <span className="fp-muted">—</span>}{chosen ? ' ✓' : ''}{change !== 0 && <span className={change > 0 ? 'fp-bad' : 'fp-ok'} style={{ fontSize: 11 }}> {change > 0 ? '▲' : '▼'}{Math.abs(change)}%</span>}</td>
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {m.orders && (
-            <div className="fp-week">
-              {m.orders.map((o) => (
-                <div key={o.shop} className="fp-order">
-                  <b>{o.shopName}</b> · <span className={o.status === 'paid' ? 'fp-ok' : o.status === 'declined' ? 'fp-bad' : 'fp-muted'}>{o.status}</span>
-                  <div className="fp-muted small">{gbp(o.subtotal)} + delivery {o.delivery ? gbp(o.delivery) : 'free'} = <b>{gbp(o.total)}</b></div>
-                  <ul style={{ paddingLeft: 18, fontSize: 13, margin: '6px 0' }}>{o.items.map((i) => <li key={i.id}>{i.packs} × {i.name} @ {gbp(i.price)}</li>)}</ul>
-                  {o.authorizationId && <div className="fp-muted" style={{ fontSize: 11 }}>Stripe {o.authorizationId}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-          {m.rejected && m.rejected.length > 0 && (
-            <details style={{ marginTop: 10 }}><summary className="fp-muted small">Rejected by the rules ({m.rejected.length})</summary>
-              <ul style={{ paddingLeft: 18, fontSize: 13 }}>{m.rejected.map((r) => <li key={r.id}>{r.name}: {r.reasons.join('; ')}</li>)}</ul>
-            </details>
-          )}
-        </section>
-      ))}
+    <details className="fp-panel fp-settings">
+      <summary><b>Account settings</b><span className="fp-muted small"> · delivery address, weekly limit, allergies</span></summary>
+      <label className="fp-field" style={{ marginTop: 12 }}>Delivery address<input className="fp-input" value={address} onChange={(e) => edit(setAddress)(e.target.value)} /></label>
+      <label className="fp-field" style={{ marginTop: 10 }}>Weekly spending limit (£)<input className="fp-input" value={budget} onChange={(e) => edit(setBudget)(e.target.value)} /></label>
+      <label className="fp-field" style={{ marginTop: 10 }}>Allergies<input className="fp-input" value={allergies} onChange={(e) => edit(setAllergies)(e.target.value)} /></label>
+      <div className="fp-row"><button className="fp-btn sm" onClick={save}>{saved ? 'Saved' : 'Save'}</button></div>
     </details>
   )
 }
