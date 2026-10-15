@@ -51,6 +51,12 @@ function App({ s, reload }: { s: State; reload: () => void }) {
   const spent = done.reduce((n, m) => n + (m.orders ?? []).filter((o) => o.status === 'paid').reduce((x, o) => x + o.total, 0), 0)
   const saved = done.reduce((n, m) => n + (m.status === 'bought' ? m.savings ?? 0 : 0), 0)
   const upcoming = s.weekIndex + 1
+  // The exact pack bought for each item in the latest deliveries, so cards show that shop's photo.
+  const bought: Record<string, string> = {}
+  for (const m of s.weeks) for (const o of m.orders ?? []) for (const it of o.items) {
+    const prod = shopOf(o.shop)?.products.find((x) => x.id === it.id)
+    if (prod) bought[prod.category] = it.id
+  }
 
   async function runNow() {
     setMsg('Starting…')
@@ -82,7 +88,7 @@ function App({ s, reload }: { s: State; reload: () => void }) {
       </div>
 
       <div className="fp-subs">
-        {subs.map((sub) => <SubCard key={sub.id} sub={sub} week={s.weekIndex} reload={reload} />)}
+        {subs.map((sub) => <SubCard key={sub.id} sub={sub} week={s.weekIndex} reload={reload} bought={bought} />)}
         {!adding && (
           <button className="fp-panel" onClick={() => setAdding(true)} style={{ cursor: 'pointer', borderStyle: 'dashed', display: 'grid', placeItems: 'center', minHeight: 180, font: 'inherit', color: 'var(--ink2)' }}>
             <span style={{ fontSize: 30 }}>＋</span><b style={{ color: 'var(--ink)' }}>Add a subscription</b><span className="small">e.g. cleaning supplies every 2 weeks</span>
@@ -100,7 +106,7 @@ function App({ s, reload }: { s: State; reload: () => void }) {
   )
 }
 
-function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reload: () => void }) {
+function SubCard({ sub, week, reload, bought }: { sub: Subscription; week: number; reload: () => void; bought: Record<string, string> }) {
   const [qtys, setQtys] = useState<Record<string, string>>({})
   const [name, setName] = useState(sub.name)
   const [err, setErr] = useState('')
@@ -127,7 +133,7 @@ function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reloa
       <ul className="fp-lines">
         {sub.lines.map((l) => (
           <li key={l.id} className="fp-line">
-            <Photo category={l.category} size={34} />
+            <Photo category={l.category} productId={bought[l.category]} size={34} />
             <span>{l.name}<span className="fp-muted small">{l.brand ? ` · ${l.brand} only` : ''}</span></span>
             <span className="fp-row tight">
               <input className="fp-input qty" type="number" min={0} value={qtys[l.id] ?? String(l.qty)} onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} aria-label={`Quantity of ${l.name}`} />

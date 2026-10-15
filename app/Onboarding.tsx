@@ -6,6 +6,7 @@ import type { WeekPlan } from '@/lib/plan'
 import { LINE_EMOJI, LINE_IMAGES } from '@/lib/images'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES } from '@/lib/subscriptions'
+import { PRODUCT_IMAGES } from '@/lib/productImages'
 
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
 const SHOP_NAMES: Record<string, string> = Object.fromEntries(SHOPS.map((s) => [s.slug, s.name]))
@@ -27,9 +28,11 @@ const CLEANING: Row[] = [
 
 interface Draft { profile: Profile; preview: WeekPlan; name: string; everyWeeks: number; notCovered: string[]; assumptions: string[] }
 
-export function Photo({ category, size = 96 }: { category: string; size?: number }) {
+// The photo of the exact product the plan buys (from that shop), else the category photo.
+export function Photo({ category, productId, size = 96 }: { category: string; productId?: string; size?: number }) {
   const [failed, setFailed] = useState(false)
-  const img = LINE_IMAGES[category]
+  const own = productId ? PRODUCT_IMAGES[productId] : undefined
+  const img = own ? { url: own, credit: 'Shop pack photo' } : LINE_IMAGES[category]
   if (!img || failed) return <div className="fp-photo" style={{ height: size, fontSize: size * 0.45 }}>{LINE_EMOJI[category] ?? '📦'}</div>
   // eslint-disable-next-line @next/next/no-img-element
   return <img className="fp-photo" src={img.url} alt="" title={img.credit} onError={() => setFailed(true)} style={{ height: size }} />
@@ -45,6 +48,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [step, setStep] = useState<1 | 2>(1)
 
   async function call(body: Record<string, unknown>, label: string) {
     setBusy(label); setError('')
@@ -54,6 +58,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
       else setDraft((d) => {
         const fresh = 'prompt' in body
         const profile = fresh && !account ? { ...r.profile, team: `${form.company} (${form.headcount} people)`, budgetPence: Math.round(Number(form.budget) * 100) || r.profile.budgetPence } : r.profile
+        if (fresh) setStep(2)
         return { ...r, profile, name: fresh ? form.name : r.name ?? d?.name, everyWeeks: fresh ? form.every : r.everyWeeks ?? d?.everyWeeks ?? 1 }
       })
     } finally { setBusy('') }
@@ -78,10 +83,17 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   }
 
   const p = draft?.preview
+  // Which exact product the plan buys for each line, so its card shows that shop's pack photo.
+  const chosen: Record<string, string> = {}
+  for (const o of p?.orders ?? []) for (const it of o.items) {
+    const prod = SHOPS.find((x) => x.slug === o.shop)?.products.find((x) => x.id === it.id)
+    if (prod) chosen[prod.category] = it.id
+  }
   const budget = account?.budgetPence ?? draft?.profile.budgetPence ?? 0
   return (
     <section className="fp-panel" id="onboarding">
-      <div className="fp-eyebrow">{account ? 'New subscription' : 'Step 1 of 2 · Your office'}</div>
+      {step === 1 && <>
+      <div className="fp-eyebrow">{account ? 'New subscription · step 1 of 2' : 'Step 1 of 2 · Your office'}</div>
       <h2 className="fp-h2">{account ? 'What else should we keep stocked?' : 'Set up your office restock'}</h2>
       <p className="fp-sub">List what you need per delivery. Add a note for anything that matters: a brand you insist on, a size, nut-free. We only buy things our shops actually sell.</p>
       {!account && (
@@ -111,15 +123,20 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
         <button className="fp-btn sm ghost" style={{ marginTop: 8 }} onClick={() => setRows([...rows, row('', '', '')])}>+ Add item</button>
       </div>
       <div className="fp-row">
-        <button className="fp-btn" onClick={draftIt} disabled={!!busy}>{draft ? 'Redraft' : 'Draft my basket'}</button>
+        <button className="fp-btn" onClick={draftIt} disabled={!!busy}>{draft ? 'Redraft my basket →' : 'Draft my basket →'}</button>
+        {draft && <button className="fp-btn ghost" onClick={() => setStep(2)} disabled={!!busy}>Back to the preview</button>}
         {onCancel && <button className="fp-btn ghost" onClick={onCancel}>Cancel</button>}
         <span className="fp-muted">{busy}</span>
         {error && <span className="fp-bad">{error}</span>}
       </div>
+      </>}
 
-      {draft && p && (
-        <div className="fp-preview">
-          <div className="fp-eyebrow">{account ? 'Preview' : 'Step 2 of 2 · Check it'}</div>
+      {step === 2 && draft && p && (
+        <div>
+          <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+            <div className="fp-eyebrow" style={{ margin: 0 }}>{account ? 'New subscription · step 2 of 2' : 'Step 2 of 2 · Check it'}</div>
+            <button className="fp-btn sm ghost" onClick={() => setStep(1)}>← Back to step 1</button>
+          </div>
           <h3 className="fp-h3">Here&apos;s what each delivery will look like. Does this look about right?</h3>
           <div className="fp-row" style={{ alignItems: 'flex-end' }}>
             <label className="fp-field" style={{ flex: 2 }}>Name<input className="fp-input" value={draft.name ?? ''} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
@@ -141,7 +158,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
               const cell = c?.chosenShop ? c.perShop[c.chosenShop] : null
               return (
                 <div key={l.id} className="fp-item">
-                  <Photo category={l.category} />
+                  <Photo category={l.category} productId={chosen[l.category]} />
                   <div className="fp-item-name">{l.name}</div>
                   <div className="fp-row tight">
                     <input key={`${l.id}-${l.qty}`} className="fp-input qty" type="number" min={1} defaultValue={l.qty} onBlur={(e) => Number(e.target.value) !== l.qty && setQty(l.id, Math.max(1, Math.round(Number(e.target.value))))} aria-label={`Quantity of ${l.name}`} />
@@ -161,7 +178,10 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
             </div>
           )}
           <div className="fp-row" style={{ marginTop: 16 }}>
+            <button className="fp-btn ghost" onClick={() => setStep(1)}>← Back</button>
             <button className="fp-btn" onClick={confirm} disabled={!!busy || !p.orders.length || p.total > budget}>Start this subscription</button>
+            <span className="fp-muted">{busy}</span>
+            {error && <span className="fp-bad">{error}</span>}
           </div>
         </div>
       )}
