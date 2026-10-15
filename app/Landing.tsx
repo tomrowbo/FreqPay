@@ -34,10 +34,10 @@ export default function Landing({ onIn }: { onIn: () => void }) {
           <img className="lp-photo" src="/brand/hero.jpg" alt="A restocked office kitchen with drinks, coffee, tea and a fruit bowl" />
           <div className="lp-float lp-float-a">
             <div className="fp-eyebrow" style={{ marginBottom: 8 }}>This week · w/c 2 Nov</div>
-            {[['asda', '£226.12'], ['iceland', '£90.65'], ['viking', '£61.41']].map(([slug, amt]) => (
+            {[['asda', '£226.12'], ['iceland', '£90.65'], ['viking', '£68.55']].map(([slug, amt]) => (
               <div key={slug} className="lp-paid"><img src={SHOPS.find((x) => x.slug === slug)?.logo} alt={slug} /><span>{amt}</span><span className="fp-ok">✓ paid</span></div>
             ))}
-            <div className="lp-saved">£378.18 delivered · <b>saved £35.41</b></div>
+            <div className="lp-saved">£385.32 delivered · <b>saved £28.27</b></div>
           </div>
           <div className="lp-float lp-float-b"><span className="fp-bad">✕ Declined</span> GadgetMart Online £15.00 · not an approved supplier</div>
         </div>
@@ -59,7 +59,7 @@ export default function Landing({ onIn }: { onIn: () => void }) {
       </section>
 
       <section className="lp-band">
-        <div className="lp-stat"><b>£1,800</b><span>saved a year for a 60-person office (£35 a week vs one supermarket + Viking)</span></div>
+        <div className="lp-stat"><b>£1,500</b><span>saved a year for a 60-person office (about £30 a week vs buying from one supermarket)</span></div>
         <div className="lp-stat"><b>10 shops</b><span>and about 290 products compared every delivery, delivery fees included</span></div>
         <div className="lp-stat"><b>32</b><span>products a week rejected for nut allergies and brand rules</span></div>
         <div className="lp-stat"><b>£0</b><span>approved that didn&apos;t match the plan</span></div>

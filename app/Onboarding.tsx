@@ -175,7 +175,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
         <div className="fp-basket-sum">
           <div><div className="fp-muted small">Each delivery</div><b>{gbp(p.total)}</b></div>
           <div><div className="fp-muted small">From</div><b>{p.orders.map((o) => SHOP_NAMES[o.shop]).join(' + ') || '—'}</b></div>
-          {p.savings ? <div><div className="fp-muted small">You save</div><b className="fp-ok">{gbp(p.savings)}</b><div className="fp-muted small">vs one supermarket + Viking</div></div> : null}
+          {p.savings ? <div><div className="fp-muted small">You save</div><b className="fp-ok">{gbp(p.savings)}</b><div className="fp-muted small" title="What you'd pay ordering everything from the single cheapest supermarket, with office supplies it doesn't sell (like Z-fold hand towels) topped up from Viking, delivery included.">vs buying from one supermarket ⓘ</div></div> : null}
         </div>
         <div className="fp-items">
           {draft.profile.lines.map((l) => {

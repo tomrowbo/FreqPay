@@ -5,7 +5,7 @@ import type { Store, Week, SupplierOrder } from '@/lib/store'
 import { weekLabel } from '@/lib/week'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES, frequencyLabel, isDue, nextDue, type Subscription } from '@/lib/subscriptions'
-import Onboarding, { Photo } from './Onboarding'
+import Onboarding from './Onboarding'
 import Landing from './Landing'
 
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
@@ -40,7 +40,9 @@ function App({ s, reload }: { s: State; reload: () => void }) {
   const [msg, setMsg] = useState('')
   const [receipt, setReceipt] = useState<{ week: Week; order: SupplierOrder } | null>(null)
   const [topping, setTopping] = useState(false)
+  const [open, setOpen] = useState<string | null>(null)
   const subs = s.subscriptions ?? []
+  const openSub = subs.find((x) => x.id === open)
   const running = !!s.agent.running
   const current = s.weeks.at(-1)
   const done = s.weeks.filter((m) => m.orders?.some((o) => o.status === 'paid'))
@@ -48,12 +50,6 @@ function App({ s, reload }: { s: State; reload: () => void }) {
   const saved = done.reduce((n, m) => n + (m.status === 'bought' ? m.savings ?? 0 : 0), 0)
   const upcoming = s.weekIndex + 1
   const wallet = s.wallet?.balancePence ?? 0
-  // The exact pack bought for each item in the latest deliveries, so cards show that shop's photo.
-  const bought: Record<string, string> = {}
-  for (const m of s.weeks) for (const o of m.orders ?? []) for (const it of o.items) {
-    const prod = shopOf(o.shop)?.products.find((x) => x.id === it.id)
-    if (prod) bought[prod.category] = it.id
-  }
 
   // Back from a Stripe top-up on the dashboard (?funded=<session>): credit the wallet.
   useEffect(() => {
@@ -108,20 +104,28 @@ function App({ s, reload }: { s: State; reload: () => void }) {
         <div className="fp-stats" style={{ margin: 0 }}>
           <div className="fp-stat"><div className="k">Next delivery</div><div className="v">{running ? current?.label : weekLabel(upcoming)}</div><div className="fp-muted small">{subs.filter((x) => isDue(x, running ? s.weekIndex : upcoming)).map((x) => x.name).join(' + ') || 'nothing due'}</div></div>
           <div className="fp-stat"><div className="k">Spent</div><div className="v">{gbp(spent)}</div><div className="fp-muted small">{done.length} {done.length === 1 ? 'week' : 'weeks'}, delivery included</div></div>
-          <div className="fp-stat"><div className="k">Saved</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small">vs one supermarket + Viking</div></div>
+          <div className="fp-stat"><div className="k">Saved</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small" title="What you'd pay ordering everything from the single cheapest supermarket, with office supplies it doesn't sell (like Z-fold hand towels) topped up from Viking, delivery included.">vs buying from one supermarket ⓘ</div></div>
         </div>
       </div>
 
       <div className="fp-section"><h2>Your subscriptions</h2></div>
-      <div className="fp-subs">
-        {subs.map((sub) => <SubCard key={sub.id} sub={sub} week={s.weekIndex} reload={reload} bought={bought} />)}
-        {!adding && (
-          <button className="fp-panel" onClick={() => setAdding(true)} style={{ cursor: 'pointer', borderStyle: 'dashed', display: 'grid', placeItems: 'center', minHeight: 180, font: 'inherit', color: 'var(--ink2)' }}>
-            <span style={{ fontSize: 30 }}>＋</span><b style={{ color: 'var(--ink)' }}>Add a subscription</b><span className="small">e.g. cleaning supplies every 2 weeks</span>
-          </button>
-        )}
-      </div>
-      {adding && <div style={{ marginTop: 16 }}><Onboarding account={s.profile} onDone={() => { setAdding(false); reload() }} onCancel={() => setAdding(false)} /></div>}
+      <section className="fp-panel fp-list">
+        {subs.map((sub) => {
+          const next = nextDue(sub, s.weekIndex)
+          return (
+            <button key={sub.id} className="fp-list-row" onClick={() => setOpen(sub.id)}>
+              <span><b>{sub.name}</b><span className="fp-muted small">{sub.lines.length} items</span></span>
+              <span className="fp-muted">{frequencyLabel(sub.everyWeeks)}</span>
+              <span className="fp-muted">{next ? `Next ${weekLabel(next)}` : '—'}</span>
+              <span className={`fp-pill ${sub.paused ? 'off' : 'on'}`}><span className="fp-dot" />{sub.paused ? 'Paused' : 'Active'}</span>
+              <span className="fp-muted" aria-hidden>›</span>
+            </button>
+          )
+        })}
+      </section>
+      <div className="fp-row"><button className="fp-btn ghost" onClick={() => setAdding(true)}>+ Add a subscription</button></div>
+      {adding && <div className="fp-modal" onClick={() => setAdding(false)}><div className="fp-modal-body wide" onClick={(e) => e.stopPropagation()}><Onboarding account={s.profile} onDone={() => { setAdding(false); reload() }} onCancel={() => setAdding(false)} /></div></div>}
+      {openSub && <SubModal sub={openSub} week={s.weekIndex} reload={reload} onClose={() => setOpen(null)} />}
 
       <div className="fp-section"><h2>Deliveries</h2></div>
       {s.weeks.length === 0 && <section className="fp-panel"><p className="fp-muted" style={{ margin: 0 }}>No deliveries yet. Press <b>Simulate next week</b> to watch the agent place this week&apos;s orders.</p></section>}
@@ -208,51 +212,56 @@ function Receipt({ s, week, order, onClose }: { s: State; week: Week; order: Sup
   )
 }
 
-function SubCard({ sub, week, reload, bought }: { sub: Subscription; week: number; reload: () => void; bought: Record<string, string> }) {
+function SubModal({ sub, week, reload, onClose }: { sub: Subscription; week: number; reload: () => void; onClose: () => void }) {
   const [qtys, setQtys] = useState<Record<string, string>>({})
   const [name, setName] = useState(sub.name)
   const [err, setErr] = useState('')
   useEffect(() => setName(sub.name), [sub.name])
-  const dirty = Object.keys(qtys).length > 0
   const update = (fields: object) => post('/api/subscriptions', { action: 'update', id: sub.id, ...fields }).then((r) => { setErr(r.error ?? ''); reload() })
   const parsed = Object.entries(qtys).map(([k, v]) => [k, v.trim() === '' ? NaN : Number(v)] as const)
   const valid = parsed.every(([, n]) => Number.isFinite(n) && n >= 0)
+  const dirty = Object.keys(qtys).length > 0
   const next = nextDue(sub, week)
   return (
-    <section className="fp-panel" style={{ marginBottom: 0 }}>
-      <div className="fp-sub-head">
-        <div style={{ flex: 1 }}>
-          <input className="fp-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => (name.trim() ? name.trim() !== sub.name && update({ name: name.trim() }) : setName(sub.name))} aria-label="Subscription name" />
-          <div className="fp-muted small">{sub.lines.length} items · {next ? `next delivery ${weekLabel(next)}` : 'paused'}</div>
+    <div className="fp-modal" onClick={onClose}>
+      <div className="fp-modal-body wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={sub.name}>
+        <div className="fp-row" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+          <input className="fp-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => (name.trim() ? name.trim() !== sub.name && update({ name: name.trim() }) : setName(sub.name))} aria-label="Subscription name" style={{ maxWidth: 420 }} />
+          <button className="fp-link" onClick={onClose}>Close</button>
         </div>
-        <span className={`fp-pill ${sub.paused ? 'off' : 'on'}`}><span className="fp-dot" />{sub.paused ? 'Paused' : 'Active'}</span>
-      </div>
-      <div className="fp-row">
-        <div className="fp-freq" role="group" aria-label="How often">
-          {FREQUENCIES.map((f) => <button key={f.weeks} className={sub.everyWeeks === f.weeks ? 'sel' : ''} onClick={() => sub.everyWeeks !== f.weeks && update({ everyWeeks: f.weeks })} title={f.label}>{f.short}</button>)}
+        <div className="fp-muted small">{sub.paused ? 'Paused' : `Next delivery ${next ? weekLabel(next) : '—'}`} · {sub.lines.length} items</div>
+        <div className="fp-row">
+          <div className="fp-freq" role="group" aria-label="How often">
+            {FREQUENCIES.map((f) => <button key={f.weeks} className={sub.everyWeeks === f.weeks ? 'sel' : ''} onClick={() => sub.everyWeeks !== f.weeks && update({ everyWeeks: f.weeks })}>{f.label}</button>)}
+          </div>
         </div>
+        <table className="fp-table" style={{ marginTop: 14 }}>
+          <thead><tr><th>Item</th><th style={{ width: 110 }}>Quantity</th><th style={{ width: 130 }}>Unit</th><th>Notes</th></tr></thead>
+          <tbody>
+            {sub.lines.map((l) => (
+              <tr key={l.id}>
+                <td>{l.name}</td>
+                <td><input className="fp-input qty" type="number" min={0} value={qtys[l.id] ?? String(l.qty)} onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} aria-label={`Quantity of ${l.name}`} /></td>
+                <td className="fp-muted">{l.unit}</td>
+                <td className="fp-muted">{l.brand ? `${l.brand} only` : 'Any brand'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {err && <div className="fp-bad small" style={{ marginTop: 8 }}>{err}</div>}
+        <div className="fp-row" style={{ marginTop: 16, justifyContent: 'space-between' }}>
+          <div className="fp-row" style={{ marginTop: 0 }}>
+            <button className="fp-btn" disabled={!dirty || !valid} onClick={() => update({ qtys: Object.fromEntries(parsed) }).then(() => setQtys({}))}>Save changes</button>
+            {dirty && <button className="fp-btn ghost" onClick={() => setQtys({})}>Discard</button>}
+          </div>
+          <div className="fp-row" style={{ marginTop: 0 }}>
+            <button className="fp-btn ghost" onClick={() => update({ paused: !sub.paused })}>{sub.paused ? 'Resume' : 'Pause'}</button>
+            <button className="fp-btn ghost danger" onClick={() => post('/api/subscriptions', { action: 'remove', id: sub.id }).then(() => { reload(); onClose() })}>Cancel subscription</button>
+          </div>
+        </div>
+        <div className="fp-muted small" style={{ marginTop: 10 }}>Changes apply from the next delivery. Set a quantity to 0 to remove an item.</div>
       </div>
-      <ul className="fp-lines">
-        {sub.lines.map((l) => (
-          <li key={l.id} className="fp-line">
-            <Photo category={l.category} productId={bought[l.category]} size={34} />
-            <span>{l.name}<span className="fp-muted small">{l.brand ? ` · ${l.brand} only` : ''}</span></span>
-            <span className="fp-row tight">
-              <input className="fp-input qty" type="number" min={0} value={qtys[l.id] ?? String(l.qty)} onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} aria-label={`Quantity of ${l.name}`} />
-              <span className="fp-muted small" style={{ width: 62 }}>{l.unit}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="fp-row">
-        {dirty && <button className="fp-btn sm" disabled={!valid} title={valid ? '0 removes an item' : 'Quantities must be numbers'} onClick={() => update({ qtys: Object.fromEntries(parsed) }).then(() => setQtys({}))}>Save changes</button>}
-        {dirty && <button className="fp-btn sm ghost" onClick={() => setQtys({})}>Discard</button>}
-        <button className="fp-btn sm ghost" onClick={() => update({ paused: !sub.paused })}>{sub.paused ? 'Resume' : 'Pause'}</button>
-        <button className="fp-link" onClick={() => post('/api/subscriptions', { action: 'remove', id: sub.id }).then(reload)}>Cancel subscription</button>
-      </div>
-      {err && <div className="fp-bad small" style={{ marginTop: 8 }}>{err}</div>}
-      <div className="fp-muted small" style={{ marginTop: 8 }}>{frequencyLabel(sub.everyWeeks)}. Changes apply from the next delivery; 0 removes an item.</div>
-    </section>
+    </div>
   )
 }
 
