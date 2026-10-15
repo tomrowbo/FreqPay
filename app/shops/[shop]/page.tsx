@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { PRODUCT_IMAGES } from '@/lib/productImages'
+import { LINE_EMOJI } from '@/lib/images'
 import { formatGBP, priceOf, shopBySlug } from '@/lib/shops'
 import { readBasket } from '@/lib/basket'
 import { readStore } from '@/lib/store'
@@ -27,7 +28,7 @@ export default async function Catalogue({ params }: { params: Promise<{ shop: st
             return (
               <tr key={p.id}>
                 {/* alt="": decorative, so the agent's accessibility snapshot is unchanged */}
-                <td style={{ width: 64 }}>{PRODUCT_IMAGES[p.id] ? <img src={PRODUCT_IMAGES[p.id]} alt="" style={{ width: 56, height: 56, objectFit: 'contain', background: '#fff', borderRadius: 8 }} /> : null}</td>
+                <td style={{ width: 64 }}>{PRODUCT_IMAGES[p.id] ? <img src={PRODUCT_IMAGES[p.id]} alt="" style={{ width: 56, height: 56, objectFit: 'contain', background: '#fff', borderRadius: 8 }} /> : <div aria-hidden style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f4', display: 'grid', placeItems: 'center', fontSize: 26 }}>{LINE_EMOJI[p.category] ?? '📦'}</div>}</td>
                 <td><a href={`/p/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</a><div className="muted" style={{ fontSize: 12 }}>{p.brand} · id {p.id}</div></td>
                 <td>{p.packLabel}</td>
                 <td><strong>{formatGBP(pr.price)}</strong>{pr.was !== undefined && pr.label && <div style={{ fontSize: 12 }}><span className={pr.price < pr.was ? 'ok' : 'bad'}>{pr.label}</span> <s className="muted">{formatGBP(pr.was)}</s></div>}</td>
