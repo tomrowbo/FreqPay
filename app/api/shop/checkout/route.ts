@@ -12,7 +12,7 @@ import { PUBLIC_DEMO } from '@/lib/demo'
 // Merchant category codes as the card network would report them.
 const MCC: Record<string, 'grocery_stores_supermarkets' | 'wholesale_clubs' | 'stationery_stores_office_and_school_supply_stores'> = {
   tesco: 'grocery_stores_supermarkets', sainsburys: 'grocery_stores_supermarkets', asda: 'grocery_stores_supermarkets', ocado: 'grocery_stores_supermarkets',
-  iceland: 'grocery_stores_supermarkets', aldi: 'grocery_stores_supermarkets', costco: 'wholesale_clubs', viking: 'stationery_stores_office_and_school_supply_stores',
+  iceland: 'grocery_stores_supermarkets', costco: 'wholesale_clubs', viking: 'stationery_stores_office_and_school_supply_stores',
 }
 
 export async function POST(req: NextRequest) {

@@ -54,9 +54,9 @@ describe('catalogue plans (what the demo will show)', () => {
       expect(plan.savings).toBeGreaterThan(0)
     }
   })
-  it('never orders from Lidl (in-store only) even where it is cheapest', () => {
-    for (const plan of plans) expect(plan.orders.some((o) => o.shop === 'lidl')).toBe(false)
-    expect(plans[0].comparison.find((c) => c.lineId === 'bananas')!.perShop.lidl).not.toBeNull()
+  it('only lists shops that deliver to the office (no Lidl, no Aldi in London)', () => {
+    expect(SHOPS.map((s) => s.slug)).toEqual(['tesco', 'sainsburys', 'asda', 'ocado', 'iceland', 'costco', 'viking'])
+    expect(SHOPS.every((s) => s.orderable && s.delivery.tiers.length > 0)).toBe(true)
   })
   it('re-plans as promotions change: no two weeks have the same split', () => {
     const shape = (i: number) => JSON.stringify(plans[i].orders.map((o) => [o.shop, o.items.map((x) => x.id).sort()]).sort())

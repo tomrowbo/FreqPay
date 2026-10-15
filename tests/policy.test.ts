@@ -13,7 +13,7 @@ describe('decideAuthorization', () => {
   it('approves a charge that matches the plan', () => {
     expect(decideAuthorization({ ...base, merchant: 'Asda', amount: 7906 })).toEqual({ approved: true, reason: 'matches the plan: £79.06 at Asda' })
   })
-  it('declines shops we can see but never order from (Lidl is in-store only)', () => {
+  it("declines shops that don't deliver (Lidl has no UK delivery)", () => {
     expect(decideAuthorization({ ...base, merchant: 'Lidl', amount: 7906 }).reason).toBe('merchant "Lidl" is not an approved supplier')
   })
   it('declines unknown merchants', () => {

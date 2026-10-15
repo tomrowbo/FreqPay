@@ -1,11 +1,12 @@
 // Real UK retailers with real shelf prices, seen 15 Oct 2026 (docs/research/real-prices-*.md:
 // trolley.co.uk and the retailers' own pages). The stores themselves are local mock sites for the
 // demo: no real order is placed and no real retailer is charged.
-//   Supermarkets: Tesco, Sainsbury's, Asda, Ocado, Iceland (all deliver)
-//   Aldi: only via Deliveroo's Oct 2026 trial; item prices modelled at shelf +20% (The Grocer's
-//         estimate; Deliveroo publishes no fees), marked as an estimate in the UI
-//   Lidl: no online ordering in the UK, shown for price comparison only (in-store)
-//   Costco (online, wholesale) and Viking (office supplier): cases, cleaning and washroom
+//   Only shops that deliver to a London office are listed (scratchpad delivery research, 15 Oct 2026):
+//   Supermarkets: Tesco, Sainsbury's, Asda, Ocado, Iceland (own home delivery, shelf prices)
+//   Costco (online, members, non-perishables) and Viking (office supplier): cases, cleaning, washroom
+//   Left out: Lidl (no delivery of any kind in the UK) and Aldi (its Deliveroo trial doesn't cover
+//   London). Tesco, Sainsbury's and Asda are also on Deliveroo/Uber Eats, but at 19-45% over shelf
+//   price, so their own delivery is always cheaper for an order this size.
 // Prices in pence per pack, inc VAT. Promotions (Clubcard/Nectar prices, rollbacks ending, a quiet
 // price creep) change prices week to week (see PROMOS) so the cheapest split changes.
 // Allergens use UK-style labelling: `contains` = in the recipe, `mayContain` = cross-contamination.
@@ -60,7 +61,6 @@ const BISCUIT: Allergen[] = ['gluten', 'milk']
 const KITKAT: Allergen[] = ['gluten', 'milk']
 const SNICKERS: Allergen[] = ['peanuts', 'milk', 'egg', 'soy']
 const COOKIE_NUT: Allergen[] = ['gluten', 'milk', 'tree nuts']
-const roo = (shelf: number) => Math.round(shelf * 1.2) // Aldi via Deliveroo: estimated markup
 
 export const SHOPS: Shop[] = [
   {
@@ -281,59 +281,10 @@ export const SHOPS: Shop[] = [
     ],
   },
   {
-    slug: 'aldi', name: 'Aldi via Deliveroo', kind: 'Discounter (rapid delivery)', tagline: 'Everyday amazing, delivered by Deliveroo',
-    logo: '/logos/aldi.svg', city: 'Atherstone', country: 'GB', host: 'aldi.localhost', accent: '#00005F', orderable: true,
-    delivery: { tiers: [{ from: 0, fee: 699 }, { from: 1500, fee: 399 }] },
-    deliveryNote: 'Deliveroo trial (Oct 2026). Delivery £3.99, +£3 small-order fee under £15 (est.).',
-    priceNote: 'Deliveroo prices modelled at Aldi shelf price + 20% (estimate; Deliveroo publishes no fees).',
-    products: [
-      P('al-coke-zero-18', 'Coca-Cola Zero Sugar', 'Coca-Cola', 'cola-zero', 18, '18 x 330ml', roo(659)),
-      P('al-vive-cola-6', 'Vive Diet Cola', 'Vive', 'cola-zero', 6, '6 x 330ml', roo(169)),
-      P('al-water-12', 'Aqua Vale Still Water', 'Aqua Vale', 'water', 12, '12 x 500ml', roo(169)),
-      P('al-pg-210', 'PG Tips Pyramid Tea Bags', 'PG Tips', 'tea-bags', 210, '210 bags', roo(499)),
-      P('al-diplomat-160', 'Diplomat Red Label Tea Bags', 'Diplomat', 'tea-bags', 160, '160 bags', roo(165)),
-      P('al-actileaf-1l', 'Actileaf Barista Oat Drink', 'Actileaf', 'oat-barista', 1, '1L', roo(109)),
-      P('al-milk-4pt', 'Cowbelle British Semi-Skimmed Milk', 'Cowbelle', 'milk-fresh', 1, '4 pints', roo(165), ['milk']),
-      P('al-uht-1l', 'Cowbelle UHT Semi-Skimmed Milk', 'Cowbelle', 'milk-uht', 1, '1L', roo(65), ['milk']),
-      P('al-sugar-1kg', 'The Pantry Granulated Sugar', 'The Pantry', 'sugar', 1, '1kg', roo(109)),
-      P('al-bananas-5', 'Bananas', 'Aldi', 'bananas', 5, '5 pack', roo(78)),
-      P('al-apples-6', 'Royal Gala Apples', 'Aldi', 'apples', 6, '6 pack', roo(149)),
-      P('al-peelers-600', 'Easy Peelers', 'Aldi', 'easy-peelers', 0.6, '600g', roo(119)),
-      P('al-dig-300', 'Belmont Milk Chocolate Digestives', 'Belmont', 'choc-biscuits', 300, '300g', roo(99), BISCUIT),
-      P('al-hazel-cookies', 'Belmont American Hazelnut Cookies', 'Belmont', 'choc-biscuits', 175, '175g', roo(99), COOKIE_NUT, [], 'wheat flour, sugar, chocolate chips, hazelnuts, butter, egg'),
-      P('al-snackrite-30', 'Snackrite Variety Crisps', 'Snackrite', 'crisps', 30, '30 x 25g', roo(399), ['milk']),
-      P('al-loo-12', 'Saxon Premium Toilet Tissue', 'Saxon', 'toilet-roll', 12, '12 rolls', roo(499)),
-      P('al-handwash-500', 'Lacura Hand Wash', 'Lacura', 'hand-wash', 0.5, '500ml', roo(149)),
-      P('al-wul-1l', 'Power Force Washing Up Liquid', 'Power Force', 'washing-up', 1, '1L', roo(109)),
-      P('al-tabs-40', 'Power Force All in One Dishwasher Tablets', 'Power Force', 'dish-tabs', 40, '40 tablets', roo(289)),
-      P('al-bins-20', 'Kitchen Bin Liners 50L', 'Aldi', 'bin-bags', 20, '20 x 50L', roo(99)),
-      P('al-spray-750', 'Power Force Surface Spray', 'Power Force', 'surface-spray', 0.75, '750ml', roo(79)),
-      P('al-towel-2', 'Power Force Kitchen Towel', 'Power Force', 'kitchen-roll', 2, '2 rolls', roo(149)),
-    ],
-  },
-  {
-    slug: 'lidl', name: 'Lidl', kind: 'Discounter (in-store only)', tagline: 'Big on quality, Lidl on price',
-    logo: '/logos/lidl.svg', city: 'London', country: 'GB', host: 'lidl.localhost', accent: '#0050AA', orderable: false,
-    delivery: { tiers: [] },
-    deliveryNote: 'No online ordering or delivery in the UK. Shelf prices shown for comparison only.',
-    products: [
-      P('li-coke-zero-30', 'Coca-Cola Zero Sugar', 'Coca-Cola', 'cola-zero', 30, '30 x 330ml', 999),
-      P('li-water-24', 'Carrick Glen Still Water', 'Carrick Glen', 'water', 24, '24 x 500ml', 349),
-      P('li-tea-240', 'Knightsbridge Tea Bags', 'Knightsbridge', 'tea-bags', 240, '240 bags', 245),
-      P('li-milk-4pt', 'British Semi-Skimmed Milk', 'Lidl', 'milk-fresh', 1, '4 pints', 165, ['milk']),
-      P('li-sugar-1kg', 'Belbake Granulated Sugar', 'Belbake', 'sugar', 1, '1kg', 109),
-      P('li-bananas-5', 'Bananas', 'Lidl', 'bananas', 5, '5 pack', 72),
-      P('li-apples-6', 'Royal Gala Apples', 'Lidl', 'apples', 6, '6 pack', 159),
-      P('li-andrex-12', 'Andrex Toilet Tissue', 'Andrex', 'toilet-roll', 12, '12 rolls', 849),
-      P('li-fairy-1015', 'Fairy Original Washing Up Liquid', 'Fairy', 'washing-up', 1.015, '1015ml', 275),
-      P('li-tabs-50', 'W5 All in One Dishwasher Tablets', 'W5', 'dish-tabs', 50, '50 tablets', 409),
-    ],
-  },
-  {
     slug: 'costco', name: 'Costco', kind: 'Wholesale (online)', tagline: 'Wholesale prices, delivered',
     logo: '/logos/costco.svg', city: 'Watford', country: 'GB', host: 'costco.localhost', accent: '#E31837', orderable: true,
     delivery: { tiers: [{ from: 0, fee: 599 }] },
-    deliveryNote: 'Grocery delivery £5.99 per order, no minimum. Membership required.',
+    deliveryNote: 'Delivery £5.99 per order, no minimum. Members only; non-perishables, about 2 working days.',
     products: [
       P('co-fanta-24', 'Fanta Orange', 'Fanta', 'fanta', 24, '24 x 330ml', 1549),
       P('co-lavazza-1kg', 'Lavazza Qualità Rossa Beans', 'Lavazza', 'coffee-beans', 1, '1kg', 1689),
@@ -357,8 +308,8 @@ export const SHOPS: Shop[] = [
   {
     slug: 'viking', name: 'Viking', kind: 'Office supplier', tagline: 'Office supplies, delivered next day',
     logo: '/logos/viking.png', city: 'Leicester', country: 'GB', host: 'viking.localhost', accent: '#E4002C', orderable: true,
-    delivery: { tiers: [{ from: 0, fee: 714 }, { from: 5900, fee: 0 }] },
-    deliveryNote: 'No minimum order. Delivery £7.14 inc VAT, free from £59. Next working day.',
+    delivery: { tiers: [{ from: 0, fee: 714 }, { from: 10680, fee: 0 }] },
+    deliveryNote: 'No minimum order. Delivery £5.95 + VAT (£7.14), free from £89 + VAT (£106.80). Next working day.',
     products: [
       P('vk-coke-zero-24', 'Coca-Cola Zero Sugar Cans', 'Coca-Cola', 'cola-zero', 24, '24 x 330ml', 2075),
       P('vk-fanta-24', 'Fanta Orange Cans', 'Fanta', 'fanta', 24, '24 x 330ml', 2075),
