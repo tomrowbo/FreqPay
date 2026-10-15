@@ -202,3 +202,24 @@ table { width: 100%; border-collapse: collapse; } td, th { text-align: left; pad
 .fp-step-img { margin: -24px -24px 20px; height: 170px; overflow: hidden; border-radius: 20px 20px 0 0; background: var(--soft); }
 .fp-step-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fp-modal-body .fp-step-img { margin: -22px -22px 18px; border-radius: 18px 18px 0 0; }
+
+/* Dark green page, light cards. Text directly on the page is cream; cards switch the tokens back. */
+.fp { --ink: #f3f1ea; --ink2: #b8c5bc; --edge: rgba(255, 255, 255, 0.14); --soft: rgba(255, 255, 255, 0.08); background: #13291e; color: var(--ink); }
+.fp-panel, .fp-stat, .lp-step, .lp-mock-card, .lp-rule, .fp-feat, .lp-float, .fp-modal-body, .fp-receipt, .lp-badge, .fp-input, .fp-textarea, .fp-chip {
+  --ink: #17201b; --ink2: #56605a; --soft: #f1efe8; --edge: #e3e0d6; color: var(--ink); background-color: #fff; }
+.fp-panel, .fp-stat, .lp-step, .lp-mock-card, .lp-rule, .fp-feat { border-color: transparent; }
+.fp .fp-btn { background: var(--lime); color: #13291e; }
+.fp .fp-btn:hover:not(:disabled) { background: #d6f78a; }
+.fp :is(.fp-panel, .fp-modal-body, .fp-receipt, .lp-float) .fp-btn { background: var(--brand); color: #fff; }
+.fp :is(.fp-panel, .fp-modal-body, .fp-receipt, .lp-float) .fp-btn:hover:not(:disabled) { background: var(--brand2); }
+.fp .fp-btn.ghost, .fp :is(.fp-panel, .fp-modal-body, .fp-receipt) .fp-btn.ghost { background: var(--soft); color: var(--ink); border: 1px solid var(--edge); }
+.fp-h1 span { color: var(--lime); }
+.fp-eyebrow { color: var(--lime); }
+.fp :is(.fp-panel, .fp-modal-body, .lp-float, .lp-step) .fp-eyebrow { color: var(--brand2); }
+.fp-wallet { border: 1px solid rgba(255, 255, 255, 0.14); }
+.fp-wallet .fp-btn.ghost { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.25); }
+.lp-band, .lp-cta { background: #1f4d36; border: 1px solid rgba(255, 255, 255, 0.12); }
+.lp-cta .fp-btn { background: var(--lime); color: #13291e; }
+.fp-ok { color: #2f8a52; }
+.fp > .fp-wrap > .fp-section .fp-ok, .fp-banner .fp-ok { color: var(--lime); }
+.fp .fp-stat .v[style] { color: #1f7a46 !important; }

@@ -27,7 +27,7 @@ export default function Home() {
     <div className="fp">
       <div className="fp-wrap">
         <nav className="fp-nav">
-          <div className="fp-logo"><img className="fp-mark-img" src="/brand/mark.svg" alt="" />FreqPay</div>
+          <div className="fp-logo"><img className="fp-mark-img" src="/brand/mark-light.svg" alt="" />FreqPay</div>
           {s.user && <div className="fp-user">{s.user}<button className="fp-link" onClick={() => fetch('/api/login', { method: 'DELETE' }).then(load)}>Sign out</button></div>}
         </nav>
         {!s.user ? <Landing onIn={load} /> : !s.profile.confirmed ? <Onboarding onDone={load} /> : <App s={s} reload={load} />}

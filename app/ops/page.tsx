@@ -19,7 +19,7 @@ export default function Ops() {
     return () => clearInterval(t)
   }, [])
   if (!s) return <div className="fp" />
-  return <div className="fp"><div className="fp-wrap"><nav className="fp-nav"><div className="fp-logo"><img className="fp-mark-img" src="/brand/mark.svg" alt="" />FreqPay · operator view</div><a className="fp-link" href="/">Back to the app</a></nav><UnderTheHood s={s} /></div></div>
+  return <div className="fp"><div className="fp-wrap"><nav className="fp-nav"><div className="fp-logo"><img className="fp-mark-img" src="/brand/mark-light.svg" alt="" />FreqPay · operator view</div><a className="fp-link" href="/">Back to the app</a></nav><UnderTheHood s={s} /></div></div>
 }
 
 function UnderTheHood({ s }: { s: State }) {
