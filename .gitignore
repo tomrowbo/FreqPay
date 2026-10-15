@@ -5,3 +5,4 @@ data/store.json
 logs
 logs-*.txt
 .superpowers
+.vercel
