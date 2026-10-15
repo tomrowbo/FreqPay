@@ -1,6 +1,6 @@
 import { planOrder, type Offer } from './optimise'
 import { checkProduct, type Profile } from './rules'
-import { findProduct, ORDERABLE, priceOf, SHOPS } from './shops'
+import { findProduct, inStock, ORDERABLE, priceOf, SHOPS } from './shops'
 import type { Comparison, SupplierOrder } from './store'
 
 // Products the agent found (by id) -> offers the planner may use. Only products that pass the
@@ -9,7 +9,7 @@ export function offersFor(productIds: string[], profile: Profile, weekIndex: num
   const offers: Offer[] = []
   for (const id of new Set(productIds)) {
     const found = findProduct(id)
-    if (!found) continue
+    if (!found || !inStock(id, weekIndex)) continue // out of stock this week: can't be planned
     const r = checkProduct(found.product, profile)
     if (!r.pass || !r.lineId) continue
     offers.push({ lineId: r.lineId, shop: found.shop.slug, productId: id, name: found.product.name, packSize: found.product.packSize, price: priceOf(found.product, weekIndex).price })

@@ -3,7 +3,7 @@ import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
 import { openBrowser, readPage, clickRef, setField } from './browser'
 import { checkProduct, type Profile } from '../lib/rules'
-import { findProduct, formatGBP, priceOf, SHOPS, shopByHost, shopUrl } from '../lib/shops'
+import { findProduct, formatGBP, inStock, priceOf, SHOPS, shopByHost, shopUrl } from '../lib/shops'
 import { buildPlan, offersFor } from '../lib/plan'
 import { getCardDetails } from '../lib/stripe'
 import { weekLabel, type Rejection, type SupplierOrder } from '../lib/store'
@@ -120,7 +120,9 @@ export async function runWeek(runId: string, log: (kind: string, text: string) =
         for (const id of product_ids) {
           const found = findProduct(id)
           if (!found) { out.push({ id, error: 'unknown product id' }); continue }
-          const r = checkProduct(found.product, ctx.profile)
+          const rules = checkProduct(found.product, ctx.profile)
+          // A product that fits the rules but is out of stock this week can't be bought; the planner buys the line elsewhere.
+          const r = rules.pass && !inStock(id, ctx.weekIndex) ? { ...rules, pass: false, reasons: [`out of stock at ${found.shop.name} this week`] } : rules
           const line = ctx.profile.lines.find((l) => l.id === r.lineId)
           if (r.pass) passed.add(id)
           else if (!rejected.some((x) => x.id === id)) rejected.push({ id, name: `${found.product.name} (${found.shop.name})`, reasons: r.reasons })

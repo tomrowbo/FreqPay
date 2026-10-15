@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { checkProduct } from '../lib/rules'
-import { findProduct, SHOPS } from '../lib/shops'
+import { findProduct, inStock, SHOPS } from '../lib/shops'
 import { DEFAULT_PROFILE } from '../lib/store'
 import { buildPlan, CARD_LIMIT_PENCE, MAX_DELIVERIES, offersFor } from '../lib/plan'
 
@@ -57,6 +57,16 @@ describe('catalogue plans (what the demo will show)', () => {
   it('only lists shops that deliver to the office (no Lidl, no Aldi in London)', () => {
     expect(SHOPS.map((s) => s.slug)).toEqual(['tesco', 'sainsburys', 'asda', 'ocado', 'iceland', 'costco', 'viking'])
     expect(SHOPS.every((s) => s.orderable && s.delivery.tiers.length > 0)).toBe(true)
+  })
+  it('buys around stock-outs: Asda is out of Oatly in week 2, Iceland out of toilet roll in week 3', () => {
+    expect(inStock('as-oatly-1l', 1)).toBe(true)
+    expect(inStock('as-oatly-1l', 2)).toBe(false)
+    const bought = (i: number) => plans[i].orders.flatMap((o) => o.items.map((x) => x.id))
+    expect(bought(0)).toContain('as-oatly-1l')
+    expect(bought(1)).not.toContain('as-oatly-1l')
+    expect(plans[1].comparison.find((c) => c.lineId === 'oat-barista')!.chosenShop).not.toBe('')
+    expect(bought(2)).not.toContain('ic-little-duck-24')
+    expect(plans[2].comparison.find((c) => c.lineId === 'toilet-roll')!.chosenShop).not.toBe('')
   })
   it('re-plans as promotions change: no two weeks have the same split', () => {
     const shape = (i: number) => JSON.stringify(plans[i].orders.map((o) => [o.shop, o.items.map((x) => x.id).sort()]).sort())

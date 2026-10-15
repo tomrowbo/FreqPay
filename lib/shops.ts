@@ -364,6 +364,15 @@ export function priceOf(product: Product, weekIndex: number): { price: number; w
   return promo ? { price: promo.price, was: product.price, label: promo.label } : { price: product.price }
 }
 
+// Stock-outs, on the same 3-week cycle as PROMOS: the shop page shows "Out of stock", the agent's
+// check rejects it with that reason, and the planner buys the line elsewhere.
+export const OUT_OF_STOCK: string[][] = [
+  [], // week 1
+  ['as-oatly-1l'], // week 2: Asda has run out of Oatly Barista
+  ['ic-little-duck-24'], // week 3: Iceland has run out of its 24-roll toilet tissue
+]
+export const inStock = (productId: string, weekIndex: number) => !OUT_OF_STOCK[(Math.max(weekIndex, 1) - 1) % OUT_OF_STOCK.length].includes(productId)
+
 export const ORDERABLE = SHOPS.filter((s) => s.orderable)
 export const shopBySlug = (slug: string) => SHOPS.find((s) => s.slug === slug)
 // tesco.localhost locally, tesco.freqpay.app on the public demo: the first label picks the shop.

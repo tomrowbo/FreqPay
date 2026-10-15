@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { PRODUCT_IMAGES } from '@/lib/productImages'
 import { LINE_EMOJI } from '@/lib/images'
-import { formatGBP, priceOf, shopBySlug } from '@/lib/shops'
+import { formatGBP, inStock, priceOf, shopBySlug } from '@/lib/shops'
 import { readBasket } from '@/lib/basket'
 import { readStore } from '@/lib/store'
 import ShopFrame from './ShopFrame'
@@ -33,7 +33,7 @@ export default async function Catalogue({ params }: { params: Promise<{ shop: st
                 <td>{p.packLabel}</td>
                 <td><strong>{formatGBP(pr.price)}</strong>{pr.was !== undefined && pr.label && <div style={{ fontSize: 12 }}><span className={pr.price < pr.was ? 'ok' : 'bad'}>{pr.label}</span> <s className="muted">{formatGBP(pr.was)}</s></div>}</td>
                 <td style={{ fontSize: 12 }}>{p.contains.length ? `Contains: ${p.contains.join(', ')}` : ''}{p.mayContain.length ? `${p.contains.length ? ' · ' : ''}May contain: ${p.mayContain.join(', ')}` : ''}</td>
-                <td>{shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={inBasket} /> : <span className="muted">In store</span>}</td>
+                <td>{!inStock(p.id, week) ? <strong className="bad">Out of stock</strong> : shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={inBasket} /> : <span className="muted">In store</span>}</td>
               </tr>
             )
           })}

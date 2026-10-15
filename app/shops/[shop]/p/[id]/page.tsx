@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { PRODUCT_IMAGES } from '@/lib/productImages'
-import { formatGBP, priceOf, shopBySlug } from '@/lib/shops'
+import { formatGBP, inStock, priceOf, shopBySlug } from '@/lib/shops'
 import { readBasket } from '@/lib/basket'
 import { readStore } from '@/lib/store'
 import ShopFrame from '../../ShopFrame'
@@ -28,7 +28,7 @@ export default async function ProductPage({ params }: { params: Promise<{ shop: 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <strong style={{ fontSize: 20 }}>{formatGBP(pr.price)}</strong>
           {pr.was !== undefined && pr.label && <span className="muted">{pr.label} <s>{formatGBP(pr.was)}</s></span>}
-          {shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={basket.lines.find((l) => l.product.id === p.id)?.qty ?? 0} /> : <span className="muted">In store only</span>}
+          {!inStock(p.id, readStore().weekIndex) ? <strong className="bad">Out of stock</strong> : shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={basket.lines.find((l) => l.product.id === p.id)?.qty ?? 0} /> : <span className="muted">In store only</span>}
         </div>
       </div>
     </ShopFrame>

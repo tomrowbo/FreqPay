@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { shopByHost } from '@/lib/shops'
+import { inStock, shopByHost } from '@/lib/shops'
+import { readStore } from '@/lib/store'
 import { parseBasket } from '@/lib/basket'
 
 // Set a product's quantity (packs). Setting, not adding, makes a repeated click harmless.
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const id = String(form.get('id'))
   const qty = Math.max(0, Math.min(99, Math.floor(Number(form.get('qty') ?? 1)) || 0))
   const basket = parseBasket(req.cookies.get('basket')?.value)
-  if (shop.products.some((p) => p.id === id)) {
+  if (shop.products.some((p) => p.id === id) && (inStock(id, readStore().weekIndex) || form.get('action') === 'remove' || qty === 0)) {
     if (form.get('action') === 'remove' || qty === 0) delete basket[id]
     else basket[id] = qty
   }
