@@ -144,7 +144,9 @@ table { width: 100%; border-collapse: collapse; } td, th { text-align: left; pad
 @media (max-width: 720px) { .fp-tf-head { display: none; } .fp-tf-row { grid-template-columns: 1fr 80px; } .fp-tf-row input:nth-child(3), .fp-tf-row input:nth-child(4) { grid-column: span 1; } }
 .fp-stepper { list-style: none; display: flex; gap: 6px; padding: 0; margin: 0 0 22px; flex-wrap: wrap; }
 .fp-stepper li { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink2); padding: 6px 12px 6px 6px; border-radius: 999px; background: var(--soft); }
-.fp-stepper li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid var(--edge); font-size: 12px; }
+.fp-stepper li span { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid var(--edge); color: var(--ink2); }
+.fp-stepper li span svg { width: 16px; height: 16px; }
+.fp-stepper li { padding-right: 14px; }
 .fp-stepper li.on { background: #e9f3d4; color: var(--brand); }
 .fp-stepper li.on span { background: var(--brand); color: #fff; border: 0; }
 .fp-stepper li.done span { background: #e7f7ee; color: var(--good); border: 0; }

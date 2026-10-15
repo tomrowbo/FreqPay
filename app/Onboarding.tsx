@@ -7,6 +7,7 @@ import { LINE_EMOJI, LINE_IMAGES } from '@/lib/images'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES } from '@/lib/subscriptions'
 import { PRODUCT_IMAGES } from '@/lib/productImages'
+import { BasketIcon, BuildingIcon, CheckIcon, ListIcon, WalletIcon } from './Icons'
 
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
 const SHOP_NAMES: Record<string, string> = Object.fromEntries(SHOPS.map((s) => [s.slug, s.name]))
@@ -42,6 +43,7 @@ export function Photo({ category, productId, size = 96 }: { category: string; pr
 // Checkout top-up) -> start. Adding a subscription later: needs -> basket -> start.
 const FIRST_STEPS = ['Your office', 'What you need', 'Your basket', 'Agent wallet']
 const ADD_STEPS = ['What you need', 'Your basket']
+const STEP_ICONS: Record<string, () => React.JSX.Element> = { 'Your office': BuildingIcon, 'What you need': ListIcon, 'Your basket': BasketIcon, 'Agent wallet': WalletIcon }
 const STEP_IMAGES: Record<string, string> = { 'Your office': '/brand/office.jpg', 'What you need': '/brand/pantry.jpg', 'Your basket': '/brand/basket.jpg', 'Agent wallet': '/brand/card.jpg' }
 
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
@@ -127,7 +129,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
     <section className="fp-panel" id="onboarding">
       {STEP_IMAGES[name] && <div className="fp-step-img"><img src={STEP_IMAGES[name]} alt="" /></div>}
       <ol className="fp-stepper">
-        {steps.map((t, i) => <li key={t} className={i === step ? 'on' : i < step ? 'done' : ''}><span>{i < step ? '✓' : i + 1}</span>{t}</li>)}
+        {steps.map((t, i) => { const Icon = i < step ? CheckIcon : STEP_ICONS[t]; return <li key={t} className={i === step ? 'on' : i < step ? 'done' : ''}><span><Icon /></span>{t}</li> })}
       </ol>
 
       {name === 'Your office' && <>
