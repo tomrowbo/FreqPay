@@ -45,7 +45,12 @@ export default function Landing({ onIn }: { onIn: () => void }) {
 
       <section className="lp-strip">
         <div className="fp-muted small">Compares real shelf prices, delivery fees and minimum orders at</div>
-        <div className="fp-logos">{SHOPS.map((x) => <img key={x.slug} src={x.logo} alt={x.name} title={x.name} />)}</div>
+        {/* Two copies of the logos scroll left forever; the second copy is hidden from screen readers. */}
+        <div className="lp-marquee">
+          <div className="lp-track">
+            {[...SHOPS, ...SHOPS].map((x, i) => <img key={i} src={x.logo} alt={i < SHOPS.length ? x.name : ''} aria-hidden={i >= SHOPS.length} title={x.name} />)}
+          </div>
+        </div>
       </section>
 
       <section id="how" className="lp-section">
