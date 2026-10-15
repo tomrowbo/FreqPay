@@ -12,4 +12,4 @@ export function proxy(req: NextRequest) {
 }
 
 // Static files (logos) are served as-is on every shop host.
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logos/).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logos/|products/|brand/).*)'] }

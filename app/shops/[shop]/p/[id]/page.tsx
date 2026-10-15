@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { PRODUCT_IMAGES } from '@/lib/productImages'
 import { formatGBP, priceOf, shopBySlug } from '@/lib/shops'
 import { readBasket } from '@/lib/basket'
 import { readStore } from '@/lib/store'
@@ -18,6 +19,7 @@ export default async function ProductPage({ params }: { params: Promise<{ shop: 
     <ShopFrame shop={shop} count={basket.count}>
       <p><a href="/">← All products</a></p>
       <div className="card" style={{ maxWidth: 640 }} data-product-id={p.id}>
+        {PRODUCT_IMAGES[p.id] && <img src={PRODUCT_IMAGES[p.id]} alt="" style={{ width: 220, height: 220, objectFit: 'contain', background: '#fff', borderRadius: 12, marginBottom: 12 }} />}
         <h1 style={{ margin: '0 0 4px' }}>{p.name}</h1>
         <div className="muted">{p.brand} · {p.packLabel} · product id {p.id}</div>
         {p.ingredients && <><h3>Ingredients</h3><p>{p.ingredients}</p></>}
