@@ -3,10 +3,10 @@ import type { Profile, RestockLine } from './rules'
 // A subscription is a list of items delivered every N weeks. Each demo week the agent buys
 // everything that's due as one shop, so one plan, one budget and the same card rules cover them all.
 export type Frequency = 1 | 2 | 4
-export const FREQUENCIES: { weeks: Frequency; label: string }[] = [
-  { weeks: 1, label: 'Every week' },
-  { weeks: 2, label: 'Every 2 weeks' },
-  { weeks: 4, label: 'Every 4 weeks' },
+export const FREQUENCIES: { weeks: Frequency; label: string; short: string }[] = [
+  { weeks: 1, label: 'Every week', short: 'Weekly' },
+  { weeks: 2, label: 'Every 2 weeks', short: '2 weeks' },
+  { weeks: 4, label: 'Every 4 weeks', short: '4 weeks' },
 ]
 export const frequencyLabel = (n: number) => FREQUENCIES.find((f) => f.weeks === n)?.label ?? `Every ${n} weeks`
 

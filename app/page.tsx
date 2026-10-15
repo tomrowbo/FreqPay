@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Store, Week } from '@/lib/store'
-import { weekLabel } from '@/lib/store'
+import { weekLabel } from '@/lib/week'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES, frequencyLabel, isDue, nextDue, type Subscription } from '@/lib/subscriptions'
 import Onboarding, { Photo } from './Onboarding'
@@ -147,7 +147,7 @@ function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reloa
       </div>
       <div className="fp-row">
         <div className="fp-freq" role="group" aria-label="How often">
-          {FREQUENCIES.map((f) => <button key={f.weeks} className={sub.everyWeeks === f.weeks ? 'sel' : ''} onClick={() => sub.everyWeeks !== f.weeks && update({ everyWeeks: f.weeks })}>{f.label}</button>)}
+          {FREQUENCIES.map((f) => <button key={f.weeks} className={sub.everyWeeks === f.weeks ? 'sel' : ''} onClick={() => sub.everyWeeks !== f.weeks && update({ everyWeeks: f.weeks })} title={f.label}>{f.short}</button>)}
         </div>
       </div>
       <ul className="fp-lines">

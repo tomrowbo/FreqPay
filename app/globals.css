@@ -73,7 +73,7 @@ table { width: 100%; border-collapse: collapse; } td, th { text-align: left; pad
 .fp-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
 .fp-pill.on { background: #e7f7ee; color: var(--good); } .fp-pill.off { background: #fff1e7; color: var(--warn); } .fp-pill.run { background: #eef0ff; color: var(--brand); }
 .fp-freq { display: inline-flex; background: var(--soft); border: 1px solid var(--edge); border-radius: 12px; padding: 3px; gap: 2px; }
-.fp-freq button { border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 9px; cursor: pointer; color: var(--ink2); }
+.fp-freq button { white-space: nowrap; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 9px; cursor: pointer; color: var(--ink2); }
 .fp-freq button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
 .fp-lines { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px; max-height: 340px; overflow: auto; }
 .fp-line { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
