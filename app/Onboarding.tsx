@@ -42,6 +42,7 @@ export function Photo({ category, productId, size = 96 }: { category: string; pr
 // Checkout top-up) -> start. Adding a subscription later: needs -> basket -> start.
 const FIRST_STEPS = ['Your office', 'What you need', 'Your basket', 'Agent wallet']
 const ADD_STEPS = ['What you need', 'Your basket']
+const STEP_IMAGES: Record<string, string> = { 'Your office': '/brand/office.jpg', 'What you need': '/brand/pantry.jpg', 'Your basket': '/brand/basket.jpg', 'Agent wallet': '/brand/card.jpg' }
 
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
   const steps = account ? ADD_STEPS : FIRST_STEPS
@@ -124,6 +125,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
 
   return (
     <section className="fp-panel" id="onboarding">
+      {STEP_IMAGES[name] && <div className="fp-step-img"><img src={STEP_IMAGES[name]} alt="" /></div>}
       <ol className="fp-stepper">
         {steps.map((t, i) => <li key={t} className={i === step ? 'on' : i < step ? 'done' : ''}><span>{i < step ? '✓' : i + 1}</span>{t}</li>)}
       </ol>

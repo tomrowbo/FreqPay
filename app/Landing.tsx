@@ -72,6 +72,7 @@ export default function Landing({ onIn }: { onIn: () => void }) {
           <p className="fp-lede" style={{ fontSize: 16 }}>Kitchen every week, cleaning every two, the big coffee order every four. Each delivery, FreqPay buys everything that&apos;s due as one shop, so you get one split, one budget and free delivery thresholds hit more often. Change items or frequency in one click.</p>
         </div>
         <div className="lp-mock">
+          <img className="lp-side" src="/brand/restock.jpg" alt="Unpacking a delivery onto office kitchen shelves" style={{ aspectRatio: '16 / 9' }} />
           <div className="lp-mock-card"><div><b>Kitchen &amp; pantry</b><div className="fp-muted small">14 items · next w/c 9 Nov</div></div><div className="fp-freq"><button className="sel">Weekly</button><button>2 weeks</button><button>4 weeks</button></div></div>
           <div className="lp-mock-card"><div><b>Washrooms &amp; cleaning</b><div className="fp-muted small">8 items · next w/c 16 Nov</div></div><div className="fp-freq"><button>Weekly</button><button className="sel">2 weeks</button><button>4 weeks</button></div></div>
           <div className="lp-mock-card"><div><b>Coffee beans</b><div className="fp-muted small">1 item · paused</div></div><span className="fp-pill off"><span className="fp-dot" />Paused</span></div>
@@ -79,8 +80,11 @@ export default function Landing({ onIn }: { onIn: () => void }) {
       </section>
 
       <section className="lp-split rev">
+        <div style={{ display: 'grid', gap: 12 }}>
+        <img className="lp-side" src="/brand/card.jpg" alt="A company payment card on a desk" style={{ aspectRatio: '16 / 9' }} />
         <div className="lp-rules">
           {['Approved shops only', 'Each charge matches the plan to the penny', 'Weekly budget + £300 per-charge card limit', 'Allergies, including "may contain"', 'The brands you insist on', 'Every decision logged with a reason'].map((r) => <div key={r} className="lp-rule"><span className="fp-ok">✓</span>{r}</div>)}
+        </div>
         </div>
         <div>
           <div className="fp-eyebrow">Control</div>

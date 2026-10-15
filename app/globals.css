@@ -188,3 +188,15 @@ table { width: 100%; border-collapse: collapse; } td, th { text-align: left; pad
 .fp-modal-body .fp-panel { box-shadow: none; border: 0; padding: 0; margin: 0; }
 .fp-btn.danger { color: var(--warn); }
 .fp-table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink2); font-weight: 700; }
+.fp-ico-row { display: flex; align-items: center; gap: 8px; }
+.fp-ico-c { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: #e9f3d4; color: var(--brand); flex: none; }
+.fp-ico-c.light { background: rgba(255, 255, 255, 0.12); color: var(--lime); }
+.fp-stat .k { margin-bottom: 6px; }
+.fp-banner { position: relative; border-radius: 20px; overflow: hidden; margin: 6px 0 18px; aspect-ratio: 21 / 4.6; background: var(--soft); }
+.fp-banner img { width: 100%; height: 100%; object-fit: cover; object-position: center 35%; display: block; }
+.fp-banner div { position: absolute; left: 0; bottom: 0; right: 0; padding: 18px 22px; color: #fff; background: linear-gradient(transparent, rgba(15, 25, 20, 0.65)); font-family: var(--font-head), Georgia, serif; font-size: 22px; }
+@media (max-width: 640px) { .fp-banner { aspect-ratio: 16 / 9; } }
+.lp-split img.lp-side { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 20px; display: block; }
+.fp-step-img { margin: -24px -24px 20px; height: 170px; overflow: hidden; border-radius: 20px 20px 0 0; background: var(--soft); }
+.fp-step-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fp-modal-body .fp-step-img { margin: -22px -22px 18px; border-radius: 18px 18px 0 0; }

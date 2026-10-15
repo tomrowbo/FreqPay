@@ -7,6 +7,7 @@ import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES, frequencyLabel, isDue, nextDue, type Subscription } from '@/lib/subscriptions'
 import Onboarding from './Onboarding'
 import Landing from './Landing'
+import { LeafIcon, ReceiptIcon, TruckIcon, WalletIcon } from './Icons'
 
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
 const shopOf = (slug: string) => SHOPS.find((x) => x.slug === slug)
@@ -90,10 +91,12 @@ function App({ s, reload }: { s: State; reload: () => void }) {
       </div>
       {msg && <p className="fp-muted small" style={{ marginTop: -4 }}>{msg}</p>}
 
+      <div className="fp-banner"><img src="/brand/delivery.jpg" alt="A grocery delivery arriving at an office reception" /><div>{running ? `Placing the ${current?.label} orders now` : `Next delivery ${weekLabel(upcoming)}${subs.filter((x) => isDue(x, upcoming)).length ? ': ' + subs.filter((x) => isDue(x, upcoming)).map((x) => x.name).join(' + ') : ''}`}</div></div>
+
       <div className="fp-dash-top">
         <div className="fp-wallet" style={{ marginTop: 0 }}>
           <div>
-            <div className="fp-muted small">Agent wallet</div>
+            <div className="fp-muted small fp-ico-row"><span className="fp-ico-c light"><WalletIcon /></span>Agent wallet</div>
             <div className="fp-wallet-bal">{gbp(wallet)}</div>
             <div className="fp-muted small">Limit {gbp(s.profile.budgetPence)} a week · £{((s.card?.limitPence ?? 30000) / 100).toFixed(0)} max per charge · card ••{s.card?.last4 ?? '0005'}</div>
           </div>
@@ -102,9 +105,9 @@ function App({ s, reload }: { s: State; reload: () => void }) {
           </div>
         </div>
         <div className="fp-stats" style={{ margin: 0 }}>
-          <div className="fp-stat"><div className="k">Next delivery</div><div className="v">{running ? current?.label : weekLabel(upcoming)}</div><div className="fp-muted small">{subs.filter((x) => isDue(x, running ? s.weekIndex : upcoming)).map((x) => x.name).join(' + ') || 'nothing due'}</div></div>
-          <div className="fp-stat"><div className="k">Spent</div><div className="v">{gbp(spent)}</div><div className="fp-muted small">{done.length} {done.length === 1 ? 'week' : 'weeks'}, delivery included</div></div>
-          <div className="fp-stat"><div className="k">Saved</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small" title="What you'd pay ordering everything from the single cheapest supermarket, with office supplies it doesn't sell (like Z-fold hand towels) topped up from Viking, delivery included.">vs buying from one supermarket ⓘ</div></div>
+          <div className="fp-stat"><div className="k fp-ico-row"><span className="fp-ico-c"><TruckIcon /></span>Next delivery</div><div className="v">{running ? current?.label : weekLabel(upcoming)}</div><div className="fp-muted small">{subs.filter((x) => isDue(x, running ? s.weekIndex : upcoming)).map((x) => x.name).join(' + ') || 'nothing due'}</div></div>
+          <div className="fp-stat"><div className="k fp-ico-row"><span className="fp-ico-c"><ReceiptIcon /></span>Spent</div><div className="v">{gbp(spent)}</div><div className="fp-muted small">{done.length} {done.length === 1 ? 'week' : 'weeks'}, delivery included</div></div>
+          <div className="fp-stat"><div className="k fp-ico-row"><span className="fp-ico-c"><LeafIcon /></span>Saved</div><div className="v" style={{ color: 'var(--good)' }}>{gbp(saved)}</div><div className="fp-muted small" title="What you'd pay ordering everything from the single cheapest supermarket, with office supplies it doesn't sell (like Z-fold hand towels) topped up from Viking, delivery included.">vs buying from one supermarket ⓘ</div></div>
         </div>
       </div>
 
