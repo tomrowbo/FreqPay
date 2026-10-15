@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { readStore } from '@/lib/store'
 import { stripe, CARD_ID } from '@/lib/stripe'
 
@@ -12,5 +13,6 @@ export async function GET() {
     card = { last4: c.last4, limitPence: c.spending_controls.spending_limits?.[0]?.amount ?? 0, fetchedAt: Date.now() }
   }
   const s = readStore()
-  return NextResponse.json({ ...s, events: s.events.slice(-300), card })
+  const user = (await cookies()).get('fp_user')?.value ?? null
+  return NextResponse.json({ ...s, events: s.events.slice(-300), card, user })
 }
