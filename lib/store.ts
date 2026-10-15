@@ -1,4 +1,5 @@
 import type { Subscription } from './subscriptions'
+import { get, put } from '@vercel/blob'
 import fs from 'fs'
 import path from 'path'
 import type { Profile } from './rules'
@@ -123,26 +124,48 @@ export function migrate(s: Store): Store {
   return s
 }
 
-export function readStore(): Store {
+// Where the demo's state lives: one JSON document. On Vercel (several servers, no shared disk) it
+// is a private Vercel Blob that every server reads fresh; locally it is data/store.json.
+const BLOB = !!process.env.VERCEL && !!process.env.BLOB_READ_WRITE_TOKEN
+const BLOB_KEY = 'freqpay/store.json'
+
+export async function readStore(): Promise<Store> {
   try {
+    if (BLOB) {
+      const r = await get(BLOB_KEY, { access: 'private', useCache: false })
+      if (!r) return structuredClone(DEFAULT_STORE)
+      return migrate(JSON.parse(await new Response(r.stream).text()) as Store)
+    }
     return migrate(JSON.parse(fs.readFileSync(FILE, 'utf8')) as Store)
   } catch {
     return structuredClone(DEFAULT_STORE)
   }
 }
 
-export function writeStore(s: Store) {
+export async function writeStore(s: Store) {
+  if (BLOB) {
+    await put(BLOB_KEY, JSON.stringify(s), { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' })
+    return
+  }
   fs.mkdirSync(path.dirname(FILE), { recursive: true })
   const tmp = FILE + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify(s, null, 2))
   fs.renameSync(tmp, FILE)
 }
 
-export function updateStore<T>(fn: (s: Store) => T): T {
-  const s = readStore()
-  const out = fn(s)
-  writeStore(s)
-  return out
+// Read-modify-write, one at a time within this server, so concurrent updates (the agent runs tool
+// calls in parallel) can't overwrite each other.
+let queue: Promise<unknown> = Promise.resolve()
+export function updateStore<T>(fn: (s: Store) => T): Promise<T> {
+  const run = async () => {
+    const s = await readStore()
+    const out = fn(s)
+    await writeStore(s)
+    return out
+  }
+  const next = queue.then(run, run)
+  queue = next.catch(() => {})
+  return next
 }
 
 export { weekLabel } from './week' // client-safe: the dashboard imports it too

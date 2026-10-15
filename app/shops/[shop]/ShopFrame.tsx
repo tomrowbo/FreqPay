@@ -1,6 +1,6 @@
 import type { Shop } from '@/lib/shops'
 
-export default function ShopFrame({ shop, count, children }: { shop: Shop; count: number; children: React.ReactNode }) {
+export default async function ShopFrame({ shop, count, children }: { shop: Shop; count: number; children: React.ReactNode }) {
   return (
     <div style={{ ['--accent' as string]: shop.accent }}>
       <div style={{ background: '#fef3c7', color: '#78350f', fontSize: 12, textAlign: 'center', padding: '3px 8px' }}>

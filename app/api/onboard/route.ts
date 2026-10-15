@@ -11,7 +11,7 @@ let drafts = { n: 0, since: Date.now() }
 // edited draft (no model call). Nothing is saved until the owner confirms via /api/profile.
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const week = readStore().weekIndex + 1
+  const week = (await readStore()).weekIndex + 1
   try {
     if (body.profile) {
       const profile = body.profile as Profile

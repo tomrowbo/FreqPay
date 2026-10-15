@@ -1,6 +1,6 @@
 // Quantity + button in one form. The quantity field is labelled per product so the agent's
 // set_field/click refs stay unambiguous; submitting sets the basket quantity (idempotent).
-export default function AddButton({ id, name, inBasket }: { id: string; name: string; inBasket: number }) {
+export default async function AddButton({ id, name, inBasket }: { id: string; name: string; inBasket: number }) {
   return (
     <form action="/api/shop/basket" method="post" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
       <input type="hidden" name="action" value="set" />

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const base = shopUrl(shop)
   const decline = (reason: string) => NextResponse.redirect(`${base}/checkout?declined=${encodeURIComponent(reason)}`, 303)
 
-  const b = priceBasket(shop, parseBasket(req.cookies.get('basket')?.value)) // never trust a client-sent amount
+  const b = priceBasket(shop, parseBasket(req.cookies.get('basket')?.value), (await readStore()).weekIndex) // never trust a client-sent amount
   if (!b.lines.length) return decline('basket is empty')
   if (b.belowMinimum) return decline(`minimum order is £${(b.minimum / 100).toFixed(2)}`)
   const total = b.total
@@ -35,12 +35,12 @@ export async function POST(req: NextRequest) {
     const pi = await chargeToken(token, total, shop.name)
     const ok = 'id' in pi
     const order: Order = {
-      id: `ord_${Date.now().toString(36)}`, shop: shop.slug, weekIndex: readStore().weekIndex,
+      id: `ord_${Date.now().toString(36)}`, shop: shop.slug, weekIndex: (await readStore()).weekIndex,
       items: b.lines.map((l) => ({ id: l.product.id, name: l.product.name, price: l.price, packs: l.qty })),
       subtotal: b.subtotal, delivery: b.delivery, total, status: ok ? 'approved' : 'declined',
       authorizationId: ok ? pi.id : undefined, declineReason: ok ? undefined : pi.error, createdAt: Date.now(),
     }
-    updateStore((s) => {
+    await updateStore((s) => {
       s.orders.push(order)
       s.auths.unshift({ id: ok ? pi.id : `declined_${Date.now().toString(36)}`, amount: total, merchant: shop.name, approved: ok, reason: ok ? 'paid with agent token' : 'token refused', policyReason: ok ? `charged token ${token}` : pi.error, t: Date.now() })
       if (ok && s.wallet) s.wallet.balancePence -= total
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const order: Order = {
     id: `ord_${Date.now().toString(36)}`,
     shop: shop.slug,
-    weekIndex: readStore().weekIndex,
+    weekIndex: (await readStore()).weekIndex,
     items: b.lines.map((l) => ({ id: l.product.id, name: l.product.name, price: l.price, packs: l.qty })),
     subtotal: b.subtotal,
     delivery: b.delivery,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     createdAt: Date.now(),
   }
   if (auth.approved) await stripe.testHelpers.issuing.authorizations.capture(auth.id)
-  updateStore((s) => {
+  await updateStore((s) => {
     s.orders.push(order)
     s.auths.unshift({ id: auth.id, amount: total, merchant: shop.name, approved: auth.approved, reason: reason ?? '', policyReason, t: Date.now() })
     if (auth.approved && s.wallet) s.wallet.balancePence -= total // the charge comes out of the agent wallet

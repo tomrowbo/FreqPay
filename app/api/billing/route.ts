@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       customer_email: (await cookies()).get('fp_user')?.value, // the signed-in email, prefilled
-      line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: amount, product_data: { name: 'FreqPay agent wallet top-up', description: `For ${readStore().profile.team}'s restock agent` } } }],
+      line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: amount, product_data: { name: 'FreqPay agent wallet top-up', description: `For ${(await readStore()).profile.team}'s restock agent` } } }],
       payment_intent_data: { setup_future_usage: 'off_session' }, // saved for automatic top-ups
       success_url: `${origin}/?funded={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?funded=cancel`,
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const pm = pi && typeof pi !== 'string' && pi.payment_method && typeof pi.payment_method !== 'string' ? pi.payment_method : null
     if (session.payment_status !== 'paid' || !session.amount_total) return NextResponse.json({ error: 'The top-up was not paid' }, { status: 400 })
     const card = pm?.card ? `${pm.card.brand[0].toUpperCase()}${pm.card.brand.slice(1)} ••${pm.card.last4}` : 'card'
-    const wallet = updateStore((s) => {
+    const wallet = await updateStore((s) => {
       const w = (s.wallet ??= { balancePence: 0, topups: [] })
       if (!w.topups.some((t) => t.id === session.id)) {
         w.topups.unshift({ id: session.id, amount: session.amount_total!, t: Date.now(), card })

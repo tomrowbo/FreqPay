@@ -24,11 +24,11 @@ export async function POST() {
     if (Date.now() - runs.since > 3_600_000) runs = { n: 0, since: Date.now() }
     if (++runs.n > 20) return NextResponse.json({ message: 'The demo agent is busy, try again in a few minutes.' })
   }
-  const s = readStore()
+  const s = (await readStore())
   if (!s.profile.confirmed) return NextResponse.json({ message: 'Set up a subscription first' })
   if (s.agent.running) return NextResponse.json({ message: 'A run is already in progress' })
   const runId = `run_${Date.now().toString(36)}`
-  updateStore((st) => {
+  await updateStore((st) => {
     st.weekIndex += 1
     const includes = (st.subscriptions ?? []).filter((x) => isDue(x, st.weekIndex)).map((x) => x.name)
     const w: Week = { index: st.weekIndex, label: weekLabel(st.weekIndex), runId, status: 'running', ...(st.subscriptions?.length ? { includes } : {}) }
@@ -36,7 +36,7 @@ export async function POST() {
     st.agent = { ...st.agent, running: true }
   })
   after(async () => {
-    try { await runWeekApi(runId) } finally { updateStore((st) => { st.agent = { ...st.agent, running: false } }) }
+    try { await runWeekApi(runId) } finally { await updateStore((st) => { st.agent = { ...st.agent, running: false } }) }
   })
   return NextResponse.json({ started: true })
 }

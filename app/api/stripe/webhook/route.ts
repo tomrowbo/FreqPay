@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
   if (event.type !== 'issuing_authorization.request') return NextResponse.json({ received: true })
   const auth = event.data.object
-  const s = readStore()
+  const s = (await readStore())
   const week = s.weeks.find((m) => m.index === s.weekIndex)
   const decision = decideAuthorization({
     merchant: auth.merchant_data.name ?? '',

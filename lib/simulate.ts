@@ -7,8 +7,8 @@ import { checkProduct } from './rules'
 // Public demo (freqpay.app has no browser agent and no `stripe listen`): run a week instantly with
 // the same rules, stock-outs, optimiser and delivery terms the agent uses, then place the planned
 // orders from the wallet. Receipts say it was placed instantly; the recorded demo shows the agent.
-export function simulateWeek(): Week {
-  return updateStore((s) => {
+export async function simulateWeek(): Promise<Week> {
+  return await updateStore((s) => {
     s.weekIndex += 1
     const index = s.weekIndex
     const runId = `sim_${Date.now().toString(36)}`

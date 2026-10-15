@@ -14,7 +14,7 @@ export default async function ProductPage({ params }: { params: Promise<{ shop: 
   const p = shop?.products.find((x) => x.id === id)
   if (!shop || !p) notFound()
   const basket = await readBasket(shop)
-  const pr = priceOf(p, readStore().weekIndex)
+  const pr = priceOf(p, (await readStore()).weekIndex)
   return (
     <ShopFrame shop={shop} count={basket.count}>
       <p><a href="/">← All products</a></p>
@@ -28,7 +28,7 @@ export default async function ProductPage({ params }: { params: Promise<{ shop: 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <strong style={{ fontSize: 20 }}>{formatGBP(pr.price)}</strong>
           {pr.was !== undefined && pr.label && <span className="muted">{pr.label} <s>{formatGBP(pr.was)}</s></span>}
-          {!inStock(p.id, readStore().weekIndex) ? <strong className="bad">Out of stock</strong> : shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={basket.lines.find((l) => l.product.id === p.id)?.qty ?? 0} /> : <span className="muted">In store only</span>}
+          {!inStock(p.id, (await readStore()).weekIndex) ? <strong className="bad">Out of stock</strong> : shop.orderable ? <AddButton id={p.id} name={p.name} inBasket={basket.lines.find((l) => l.product.id === p.id)?.qty ?? 0} /> : <span className="muted">In store only</span>}
         </div>
       </div>
     </ShopFrame>

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function OrderPage({ params }: { params: Promise<{ shop: string; id: string }> }) {
   const { shop: slug, id } = await params
   const shop = shopBySlug(slug)
-  const order = readStore().orders.find((o) => o.id === id)
+  const order = (await readStore()).orders.find((o) => o.id === id)
   if (!shop || !order) notFound()
   return (
     <ShopFrame shop={shop} count={0}>

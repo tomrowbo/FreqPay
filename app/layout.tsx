@@ -6,7 +6,7 @@ const body = DM_Sans({ subsets: ['latin'], variable: '--font-body' })
 
 export const metadata = { title: 'FreqPay', robots: { index: false, follow: false } } // simulated shops with real retailer branding stay out of search
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${head.variable} ${body.variable}`}>
       <body>

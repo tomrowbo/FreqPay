@@ -15,7 +15,7 @@ export default async function Catalogue({ params }: { params: Promise<{ shop: st
   const shop = shopBySlug((await params).shop)
   if (!shop) notFound()
   const basket = await readBasket(shop)
-  const week = readStore().weekIndex
+  const week = (await readStore()).weekIndex
   return (
     <ShopFrame shop={shop} count={basket.count}>
       <h1 style={{ marginBottom: 4 }}>All products</h1>

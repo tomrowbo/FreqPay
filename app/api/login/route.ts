@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
 }
 
 // Signing out resets the demo: subscriptions, wallet and deliveries go, so the next sign-in starts fresh.
-export function DELETE() {
-  writeStore({ ...structuredClone(DEFAULT_STORE), profile: { ...readStore().profile, confirmed: false }, subscriptions: [] })
+export async function DELETE() {
+  await writeStore({ ...structuredClone(DEFAULT_STORE), profile: { ...(await readStore()).profile, confirmed: false }, subscriptions: [] })
   const res = NextResponse.json({ ok: true })
   res.cookies.delete('fp_user')
   return res

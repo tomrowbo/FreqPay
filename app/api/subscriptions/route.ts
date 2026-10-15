@@ -11,7 +11,7 @@ const freq = (n: unknown): Frequency => (FREQUENCIES.some((f) => f.weeks === Num
 // allergies and turns the agent on. update: {id, name?, everyWeeks?, paused?, qtys?}. remove: {id}.
 export async function POST(req: NextRequest) {
   const b = await req.json()
-  const out = updateStore((s) => {
+  const out = await updateStore((s) => {
     const subs = (s.subscriptions ??= [])
     if (b.action === 'add') {
       const lines = (b.lines as RestockLine[]).filter((l) => l.qty > 0)

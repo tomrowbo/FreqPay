@@ -5,7 +5,7 @@ import { isDue } from '@/lib/subscriptions'
 // action "start": advance the demo clock and open a new week. action "update": merge fields.
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const week = updateStore((s) => {
+  const week = await updateStore((s) => {
     if (body.action === 'start') {
       s.weekIndex += 1
       const includes = (s.subscriptions ?? []).filter((x) => isDue(x, s.weekIndex)).map((x) => x.name)

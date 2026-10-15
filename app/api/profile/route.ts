@@ -6,7 +6,7 @@ import type { Profile } from '@/lib/rules'
 // allergies and line quantities; {confirmed:false} sends the owner back to onboarding.
 export async function POST(req: NextRequest) {
   const { profile, budgetPence, allergies, address, qtys, confirmed } = await req.json()
-  updateStore((s) => {
+  await updateStore((s) => {
     if (profile) s.profile = { ...(profile as Profile), confirmed: true }
     if (Number(budgetPence) > 0) s.profile.budgetPence = Math.round(Number(budgetPence))
     if (Array.isArray(allergies)) s.profile.allergies = allergies.map(String).map((a) => a.trim()).filter(Boolean)

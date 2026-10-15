@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const id = String(form.get('id'))
   const qty = Math.max(0, Math.min(99, Math.floor(Number(form.get('qty') ?? 1)) || 0))
   const basket = parseBasket(req.cookies.get('basket')?.value)
-  if (shop.products.some((p) => p.id === id) && (inStock(id, readStore().weekIndex) || form.get('action') === 'remove' || qty === 0)) {
+  if (shop.products.some((p) => p.id === id) && (inStock(id, (await readStore()).weekIndex) || form.get('action') === 'remove' || qty === 0)) {
     if (form.get('action') === 'remove' || qty === 0) delete basket[id]
     else basket[id] = qty
   }

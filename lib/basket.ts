@@ -14,7 +14,7 @@ export function parseBasket(raw: string | undefined): Record<string, number> {
 }
 
 // Prices are this demo week's (promotions change week to week).
-export function priceBasket(shop: Shop, qtys: Record<string, number>, weekIndex = readStore().weekIndex) {
+export function priceBasket(shop: Shop, qtys: Record<string, number>, weekIndex: number) {
   const lines: BasketLine[] = []
   for (const [id, qty] of Object.entries(qtys)) {
     const product = shop.products.find((p) => p.id === id)
@@ -30,5 +30,5 @@ export function priceBasket(shop: Shop, qtys: Record<string, number>, weekIndex 
 }
 
 export async function readBasket(shop: Shop) {
-  return priceBasket(shop, parseBasket((await cookies()).get('basket')?.value))
+  return priceBasket(shop, parseBasket((await cookies()).get('basket')?.value), (await readStore()).weekIndex)
 }

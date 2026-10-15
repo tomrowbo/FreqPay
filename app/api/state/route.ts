@@ -16,7 +16,7 @@ export async function GET() {
       card = { last4: '0005', limitPence: 30000, fetchedAt: Date.now() } // Stripe unreachable: show the card's known settings
     }
   }
-  const s = readStore()
+  const s = (await readStore())
   const user = (await cookies()).get('fp_user')?.value ?? null
   return NextResponse.json({ ...s, events: s.events.slice(-300), card, user })
 }
