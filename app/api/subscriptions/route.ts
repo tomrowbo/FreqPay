@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       if (!lines.length) return { error: 'This subscription has no items' }
       if (!s.profile.confirmed && b.profile) { // a brand-new account: the draft sets team, budget and allergies
         const p = b.profile as Profile
-        s.profile = { ...s.profile, team: p.team, budgetPence: p.budgetPence, allergies: p.allergies }
+        s.profile = { ...s.profile, team: p.team, budgetPence: p.budgetPence, allergies: p.allergies, address: typeof b.address === 'string' ? b.address.trim().slice(0, 200) : s.profile.address }
       }
       const sub: Subscription = { id: `sub_${Date.now().toString(36)}`, name: String(b.name || 'Office restock').slice(0, 60), everyWeeks: freq(b.everyWeeks), startWeek: s.weekIndex + 1, lines }
       // Each list can fit the budget alone and still go over it in a week when they're all due.

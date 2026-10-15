@@ -151,14 +151,16 @@ function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reloa
 function Account({ s, reload }: { s: State; reload: () => void }) {
   const [budget, setBudget] = useState((s.profile.budgetPence / 100).toFixed(2))
   const [allergies, setAllergies] = useState(s.profile.allergies.join(', '))
+  const [address, setAddress] = useState(s.profile.address ?? '')
   const [saved, setSaved] = useState(false)
   async function save() {
-    await post('/api/profile', { budgetPence: Math.round(parseFloat(budget) * 100), allergies: allergies.split(',').map((x) => x.trim()).filter(Boolean) })
+    await post('/api/profile', { budgetPence: Math.round(parseFloat(budget) * 100), allergies: allergies.split(',').map((x) => x.trim()).filter(Boolean), address })
     setSaved(true); reload()
   }
   return (
     <section className="fp-panel" style={{ marginTop: 20 }}>
       <div className="fp-row" style={{ marginTop: 0, alignItems: 'flex-end' }}>
+        <label className="fp-field" style={{ flex: 2 }}>Delivery address<input className="fp-input" value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} /></label>
         <label className="fp-field" style={{ flex: 1 }}>Weekly budget (£)<input className="fp-input" value={budget} onChange={(e) => { setBudget(e.target.value); setSaved(false) }} /></label>
         <label className="fp-field" style={{ flex: 2 }}>Team allergies (never bought, including "may contain")<input className="fp-input" value={allergies} onChange={(e) => { setAllergies(e.target.value); setSaved(false) }} /></label>
         <button className="fp-btn ghost" onClick={save}>{saved ? 'Saved' : 'Save'}</button>

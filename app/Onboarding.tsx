@@ -10,14 +10,20 @@ import { FREQUENCIES } from '@/lib/subscriptions'
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
 const SHOP_NAMES: Record<string, string> = Object.fromEntries(SHOPS.map((s) => [s.slug, s.name]))
 
-const FIRST_EXAMPLE = `Rowbo Studio, a 60-person office in London. Every week we get through:
-Drinks: 72 cans of Coke Zero and 48 cans of Fanta (real brands only), 48 bottles of water
-Tea and coffee: 4 kg coffee beans, 600 tea bags, 20 four-pint bottles of fresh milk, 12 litres of Oatly Barista (the baristas insist), 2 kg sugar
-Fruit: 60 bananas, 60 apples, 3 kg easy peelers
-Snacks: 3 kg chocolate biscuits, 80 bags of crisps, 48 chocolate bars
-Two people have nut allergies. Keep it under £450 a week.`
+type Row = { name: string; qty: string; unit: string; note: string }
+const row = (name: string, qty: number | string, unit: string, note = ''): Row => ({ name, qty: String(qty), unit, note })
 
-const NEXT_EXAMPLE = `Washrooms and cleaning, every 2 weeks: 96 toilet rolls, 6,000 paper hand towels, 3 litres hand wash, 24 rolls of kitchen roll, 2 litres washing-up liquid, 20 dishwasher tablets, 60 bin bags, 3 litres surface spray`
+// Pre-filled with the 60-person example (the demo's verified weekly demand).
+const KITCHEN: Row[] = [
+  row('Coke Zero', 72, 'cans', 'Coca-Cola only, the real brand'), row('Fanta Orange', 48, 'cans', 'Fanta only'), row('Bottled water', 48, 'bottles', '500ml'),
+  row('Coffee beans', 4, 'kg', 'for the bean-to-cup machine'), row('Tea bags', 600, 'bags'), row('Fresh milk', 20, 'four-pint bottles', 'semi-skimmed'),
+  row('Oatly Barista', 12, 'litres', 'Oatly only, the baristas insist'), row('Sugar', 2, 'kg'), row('Bananas', 60, 'bananas'), row('Apples', 60, 'apples'),
+  row('Easy peelers', 3, 'kg'), row('Chocolate biscuits', 3, 'kg'), row('Crisps', 80, 'bags'), row('Chocolate bars', 48, 'bars'),
+]
+const CLEANING: Row[] = [
+  row('Toilet rolls', 96, 'rolls'), row('Paper hand towels', 6000, 'sheets'), row('Hand wash', 3, 'litres'), row('Kitchen roll', 24, 'rolls'),
+  row('Washing-up liquid', 2, 'litres'), row('Dishwasher tablets', 20, 'tablets'), row('Bin bags', 60, 'bags'), row('Surface spray', 3, 'litres', 'antibacterial'),
+]
 
 interface Draft { profile: Profile; preview: WeekPlan; name: string; everyWeeks: number; notCovered: string[]; assumptions: string[] }
 
@@ -32,29 +38,41 @@ export function Photo({ category, size = 96 }: { category: string; size?: number
 // First time: the office's demand becomes its first subscription (and sets team, budget, allergies).
 // Later: `account` says who the office is, so a short "every 2 weeks: …" is enough.
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
-  const [prompt, setPrompt] = useState(account ? NEXT_EXAMPLE : FIRST_EXAMPLE)
+  const [form, setForm] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD', budget: '450', allergies: 'nuts (two people)', name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
+  const [rows, setRows] = useState<Row[]>(account ? CLEANING : KITCHEN)
+  const set = (k: keyof typeof form, v: string | number) => setForm({ ...form, [k]: v })
+  const setRow = (i: number, k: keyof Row, v: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
-  async function call(body: object, label: string) {
+  async function call(body: Record<string, unknown>, label: string) {
     setBusy(label); setError('')
     try {
       const r = await fetch('/api/onboard', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json())
       if (r.error) setError(r.error)
-      else setDraft((d) => ({ ...r, name: r.name ?? d?.name, everyWeeks: r.everyWeeks ?? d?.everyWeeks ?? 1 }))
+      else setDraft((d) => {
+        const fresh = 'prompt' in body
+        const profile = fresh && !account ? { ...r.profile, team: `${form.company} (${form.headcount} people)`, budgetPence: Math.round(Number(form.budget) * 100) || r.profile.budgetPence } : r.profile
+        return { ...r, profile, name: fresh ? form.name : r.name ?? d?.name, everyWeeks: fresh ? form.every : r.everyWeeks ?? d?.everyWeeks ?? 1 }
+      })
     } finally { setBusy('') }
   }
+  // The form becomes the same plain-language demand Claude already reads reliably.
   function draftIt() {
-    const who = account ? `${account.team}. Weekly budget £${(account.budgetPence / 100).toFixed(0)}. Allergies: ${account.allergies.join(', ') || 'none'}.\n` : ''
-    void call({ prompt: who + prompt }, 'Drafting…')
+    const items = rows.filter((r) => r.name.trim() && Number(r.qty) > 0).map((r) => `- ${r.qty} ${r.unit} ${r.name}${r.note.trim() ? ` (${r.note.trim()})` : ''}`).join('\n')
+    const often = FREQUENCIES.find((f) => f.weeks === form.every)?.label.toLowerCase() ?? 'every week'
+    const who = account
+      ? `${account.team}. Weekly budget £${(account.budgetPence / 100).toFixed(0)}. Allergies: ${account.allergies.join(', ') || 'none'}.`
+      : `${form.company}, a ${form.headcount}-person office. Allergies: ${form.allergies || 'none'}. Keep it under £${form.budget} a week.`
+    void call({ prompt: `${who}\nSubscription "${form.name}", delivered ${often}. Per delivery we need:\n${items}` }, 'Drafting your basket…')
   }
   const reprice = (profile: Profile) => draft && void call({ profile, notCovered: draft.notCovered, assumptions: draft.assumptions }, 'Re-pricing…')
   const setQty = (id: string, qty: number) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.map((l) => (l.id === id ? { ...l, qty } : l)) })
   const remove = (id: string) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.filter((l) => l.id !== id) })
   async function confirm() {
     const d = draft!
-    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: d.name, everyWeeks: d.everyWeeks, lines: d.profile.lines, profile: d.profile }) }).then((x) => x.json())
+    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: d.name, everyWeeks: d.everyWeeks, lines: d.profile.lines, profile: d.profile, address: form.address }) }).then((x) => x.json())
     if (r.error) setError(r.error)
     else onDone()
   }
@@ -63,10 +81,35 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   const budget = account?.budgetPence ?? draft?.profile.budgetPence ?? 0
   return (
     <section className="fp-panel" id="onboarding">
-      <div className="fp-eyebrow">{account ? 'New subscription' : 'Step 1 of 2 · Your demand'}</div>
-      <h2 className="fp-h2">{account ? 'What else should we keep stocked?' : 'What does your office get through?'}</h2>
-      <p className="fp-sub">Write it the way you'd tell a colleague: quantities, how often, brands you insist on, allergies. We only use things our shops actually sell.</p>
-      <textarea className="fp-textarea" rows={account ? 3 : 7} value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label="Your demand" />
+      <div className="fp-eyebrow">{account ? 'New subscription' : 'Step 1 of 2 · Your office'}</div>
+      <h2 className="fp-h2">{account ? 'What else should we keep stocked?' : 'Set up your office restock'}</h2>
+      <p className="fp-sub">List what you need per delivery. Add a note for anything that matters: a brand you insist on, a size, nut-free. We only buy things our shops actually sell.</p>
+      {!account && (
+        <div className="fp-form">
+          <label className="fp-field">Company<input className="fp-input" value={form.company} onChange={(e) => set('company', e.target.value)} /></label>
+          <label className="fp-field">People in the office<input className="fp-input" type="number" min={1} value={form.headcount} onChange={(e) => set('headcount', e.target.value)} /></label>
+          <label className="fp-field wide">Delivery address<input className="fp-input" value={form.address} onChange={(e) => set('address', e.target.value)} autoComplete="street-address" /></label>
+          <label className="fp-field">Weekly budget (£)<input className="fp-input" type="number" min={1} value={form.budget} onChange={(e) => set('budget', e.target.value)} /></label>
+          <label className="fp-field">Allergies<input className="fp-input" value={form.allergies} onChange={(e) => set('allergies', e.target.value)} placeholder="e.g. nuts, gluten" /></label>
+        </div>
+      )}
+      <div className="fp-form" style={{ marginTop: 14 }}>
+        <label className="fp-field wide">Subscription name<input className="fp-input" value={form.name} onChange={(e) => set('name', e.target.value)} /></label>
+        <label className="fp-field">How often<select className="fp-input" value={form.every} onChange={(e) => set('every', Number(e.target.value))}>{FREQUENCIES.map((f) => <option key={f.weeks} value={f.weeks}>{f.label}</option>)}</select></label>
+      </div>
+      <div className="fp-table-form">
+        <div className="fp-tf-head"><span>Item</span><span>Quantity</span><span>Unit</span><span>Description</span><span /></div>
+        {rows.map((r, i) => (
+          <div key={i} className="fp-tf-row">
+            <input className="fp-input" value={r.name} onChange={(e) => setRow(i, 'name', e.target.value)} placeholder="e.g. Tea bags" aria-label="Item" />
+            <input className="fp-input" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, 'qty', e.target.value)} aria-label="Quantity needed" />
+            <input className="fp-input" value={r.unit} onChange={(e) => setRow(i, 'unit', e.target.value)} placeholder="bags" aria-label="Unit" />
+            <input className="fp-input" value={r.note} onChange={(e) => setRow(i, 'note', e.target.value)} placeholder="Brand, size, nut-free…" aria-label="Description" />
+            <button className="fp-link" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove ${r.name}`}>✕</button>
+          </div>
+        ))}
+        <button className="fp-btn sm ghost" style={{ marginTop: 8 }} onClick={() => setRows([...rows, row('', '', '')])}>+ Add item</button>
+      </div>
       <div className="fp-row">
         <button className="fp-btn" onClick={draftIt} disabled={!!busy}>{draft ? 'Redraft' : 'Draft my basket'}</button>
         {onCancel && <button className="fp-btn ghost" onClick={onCancel}>Cancel</button>}

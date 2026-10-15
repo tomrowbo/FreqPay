@@ -16,6 +16,7 @@ export interface Profile {
   team: string
   budgetPence: number // weekly cap across all suppliers
   allergies: string[] // plain words, e.g. ["nuts"]
+  address?: string // delivery address for every order
   lines: RestockLine[]
   confirmed?: boolean // the owner approved the preview basket; weekly runs only start after this
 }
