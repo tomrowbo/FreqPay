@@ -40,6 +40,12 @@ Be efficient: you have a limited number of steps. Don't re-read pages you've jus
 
 export async function runWeek(runId: string, log: (kind: string, text: string) => Promise<void>) {
   const ctx = (await fetch(`${APP}/api/agent/context`).then((r) => r.json())) as Context
+  if (!ctx.profile.lines.length) { // every subscription is paused or not due this week
+    const note = 'Nothing is due this week, so there was nothing to buy.'
+    await post('/api/agent/week', { action: 'update', runId, fields: { note, status: 'nothing-bought' } })
+    await log('done', note)
+    return
+  }
   const passed = new Set<string>()
   const rejected: Rejection[] = []
   let orders: SupplierOrder[] | null = null

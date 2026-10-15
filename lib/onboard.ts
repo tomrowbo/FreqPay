@@ -38,13 +38,15 @@ export const STOCKABLE: Record<Exclude<Category, 'milk-uht' | 'stationery'>, { u
 const categories = Object.keys(STOCKABLE) as [keyof typeof STOCKABLE, ...(keyof typeof STOCKABLE)[]]
 
 const Draft = z.object({
+  name: z.string().describe('Short name for this subscription, e.g. "Kitchen & pantry" or "Washrooms & cleaning"'),
+  everyWeeks: z.union([z.literal(1), z.literal(2), z.literal(4)]).describe('How often it is delivered: 1 = every week (default), 2 = every two weeks / fortnightly, 4 = every four weeks / monthly'),
   team: z.string().describe('Short office name and headcount, e.g. "Rowbo Studio (60 people)"'),
   weeklyBudgetPounds: z.number().describe('Weekly cap in pounds. If not given, about £7.50 per person.'),
   allergies: z.array(z.string()).describe('Plain words, e.g. ["nuts"]. Empty if none mentioned.'),
   lines: z.array(z.object({
     category: z.enum(categories),
     name: z.string().describe('Short line name, e.g. "Fanta Orange cans"'),
-    qty: z.number().describe('Weekly quantity in the category unit (whole numbers except kg and litres)'),
+    qty: z.number().describe('Quantity per delivery in the category unit (whole numbers except kg and litres)'),
     brand: z.string().nullable().describe('Only if they insisted on a brand; must be one of the category brands. null = any brand, own-brand fine.'),
   })),
   notCovered: z.array(z.string()).describe('Things they asked for that none of the categories cover'),
@@ -53,7 +55,7 @@ const Draft = z.object({
 
 const client = new Anthropic()
 
-export async function draftProfile(prompt: string): Promise<{ profile: Profile; notCovered: string[]; assumptions: string[] }> {
+export async function draftProfile(prompt: string): Promise<{ profile: Profile; name: string; everyWeeks: 1 | 2 | 4; notCovered: string[]; assumptions: string[] }> {
   // Rough cheapest price per unit, so the model can size quantities to the budget.
   const perUnit = (c: string, brand?: string) => Math.min(...ORDERABLE.flatMap((s) => s.products.filter((p) => p.category === c && (!brand || p.brand === brand)).map((p) => priceOf(p, 1).price / p.packSize)))
   const price = (pence: number) => `£${(pence / 100).toFixed(2)}`
@@ -66,7 +68,7 @@ export async function draftProfile(prompt: string): Promise<{ profile: Profile; 
     model: 'claude-opus-5-5',
     max_tokens: 4000,
     output_config: { effort: 'low', format: zodOutputFormat(Draft) },
-    system: `You set up a weekly office restock list (kitchen, pantry and washrooms) from the office manager's description. Only use these categories (what our suppliers stock):\n${catalogue}\n\nThe quantities they give are their weekly demand: use each one exactly, converted to the category unit (e.g. "3 kg chocolate biscuits" is 3000 g, "6,000 paper hand towels" is 6000 sheets). Only for things they name without a quantity, estimate a realistic weekly amount for the headcount (a working week is about 20 days) and list it in assumptions. Then check the whole list fits their weekly budget at these prices, plus delivery (the order goes to up to 3 suppliers, so allow about £15 in total): if it doesn't, trim only the quantities you estimated and say so in assumptions. Lock a brand only if they insisted on it. Anything else they ask for goes in notCovered.`,
+    system: `You set up a weekly office restock list (kitchen, pantry and washrooms) from the office manager's description. Only use these categories (what our suppliers stock):\n${catalogue}\n\nThey may say how often (every week, every 2 weeks, monthly); quantities are per delivery. The quantities they give are their demand: use each one exactly, converted to the category unit (e.g. "3 kg chocolate biscuits" is 3000 g, "6,000 paper hand towels" is 6000 sheets). Only for things they name without a quantity, estimate a realistic weekly amount for the headcount (a working week is about 20 days) and list it in assumptions. Then check the whole list fits their weekly budget at these prices, plus delivery (the order goes to up to 3 suppliers, so allow about £15 in total): if it doesn't, trim only the quantities you estimated and say so in assumptions. Lock a brand only if they insisted on it. Anything else they ask for goes in notCovered.`,
     messages: [{ role: 'user', content: prompt }],
   })
   const d = msg.parsed_output
@@ -89,7 +91,7 @@ export async function draftProfile(prompt: string): Promise<{ profile: Profile; 
     })),
     confirmed: false,
   }
-  return { profile, notCovered: d.notCovered, assumptions: d.assumptions }
+  return { profile, name: d.name, everyWeeks: d.everyWeeks, notCovered: d.notCovered, assumptions: d.assumptions }
 }
 
 // Claude sizes quantities from rough unit prices; pack sizes and delivery make the real plan

@@ -1,3 +1,4 @@
+import type { Subscription } from './subscriptions'
 import fs from 'fs'
 import path from 'path'
 import type { Profile } from './rules'
@@ -59,6 +60,7 @@ export interface AuthLog { id: string; amount: number; merchant: string; approve
 
 export interface Store {
   profile: Profile
+  subscriptions?: Subscription[] // none = the profile's list, every week
   weekIndex: number // last started demo week
   weeks: Week[]
   events: RunEvent[]
