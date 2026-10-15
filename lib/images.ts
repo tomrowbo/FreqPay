@@ -7,6 +7,10 @@ export const LINE_EMOJI: Record<string, string> = {
 }
 
 export const LINE_IMAGES: Record<string, { url: string; credit: string }> = {
+  'sugar': { url: 'https://images.openfoodfacts.org/images/products/501/011/592/6404/front_en.12.400.jpg', credit: 'Open Food Facts, CC BY-SA, barcode 5010115926404' },
+  'toilet-roll': { url: 'https://images.openproductsfacts.org/images/products/502/905/357/8200/front_en.3.400.jpg', credit: 'Open Products Facts, CC BY-SA, barcode 5029053578200' },
+  'hand-wash': { url: 'https://images.openbeautyfacts.org/images/products/500/010/165/5579/front_en.5.400.jpg', credit: 'Open Beauty Facts, CC BY-SA, barcode 5000101655579' },
+  'dish-tabs': { url: 'https://images.openproductsfacts.org/images/products/505/900/101/5297/front_en.3.400.jpg', credit: 'Open Products Facts, CC BY-SA, barcode 5059001015297' },
   'fanta': { url: 'https://images.openfoodfacts.org/images/products/500/011/255/2119/front_en.4.400.jpg', credit: 'Open Food Facts, CC BY-SA, barcode 5000112552119' },
   'cola-zero': { url: 'https://images.openfoodfacts.org/images/products/500/011/259/2054/front_en.3.400.jpg', credit: 'Open Food Facts, CC BY-SA, barcode 5000112592054' },
   'coffee-beans': { url: 'https://images.openfoodfacts.org/images/products/800/007/003/5188/front_en.29.400.jpg', credit: 'Open Food Facts, CC BY-SA, barcode 8000070035188' },
