@@ -6,6 +6,7 @@ import { checkProduct, type Profile } from '../lib/rules'
 import { findProduct, formatGBP, inStock, priceOf, SHOPS, shopByHost, shopUrl } from '../lib/shops'
 import { buildPlan, offersFor } from '../lib/plan'
 import { getCardDetails } from '../lib/stripe'
+import { PAY_RAIL } from '../lib/spt'
 import { weekLabel, type Rejection, type SupplierOrder } from '../lib/store'
 
 const APP = 'http://localhost:3000'
@@ -182,6 +183,21 @@ export async function runWeek(runId: string, log: (kind: string, text: string) =
         const want = Object.fromEntries(order.items.map((i) => [i.id, i.packs ?? 1]))
         const diff = [...new Set([...Object.keys(basket), ...Object.keys(want)])].filter((id) => basket[id] !== want[id]).map((id) => `${id}: basket ${basket[id] ?? 0}, plan ${want[id] ?? 0}`)
         if (diff.length) return `Refusing to pay: the basket doesn't match the plan for ${shop.name}. Fix these quantities first: ${diff.join('; ')}`
+        if (PAY_RAIL === 'spt') {
+          // Agentic checkout: FreqPay checks the policy and mints a Shared Payment Token scoped to
+          // exactly this order; the shop charges the token. No card number changes hands.
+          const t = await post('/api/agent/token', { merchant: shop.name, amount: order.total })
+          if (!t.token) {
+            order.status = 'declined'
+            order.declineReason = t.error
+            await update({ orders })
+            await log('pay', `No token for ${shop.name}: ${t.error}`)
+            return `Declined at ${shop.name}: ${t.error}. Don't retry; carry on with the other suppliers.`
+          }
+          await log('pay', `Paying ${formatGBP(order.total)} at ${shop.name} with a Stripe shared payment token (limited to ${formatGBP(order.total)}, 15 minutes)`)
+          await page.fill('#agent-token', t.token)
+          await page.click('#pay-token-button')
+        } else {
         const c = await getCardDetails()
         await log('pay', `Paying ${formatGBP(order.total)} at ${shop.name} with card ••${c.last4}`)
         await page.fill('#name', c.name)
@@ -190,6 +206,7 @@ export async function runWeek(runId: string, log: (kind: string, text: string) =
         await page.fill('#cvc', c.cvc)
         await page.fill('#postcode', 'EC1A 1AA')
         await page.click('#pay-button')
+        }
         await page.waitForURL(/\/order\/|declined=/, { timeout: 45_000 })
         const after = new URL(page.url())
         let detail: string
@@ -197,7 +214,7 @@ export async function runWeek(runId: string, log: (kind: string, text: string) =
           order.status = 'paid'
           order.orderId = after.pathname.split('/').pop()!
           order.authorizationId = (await page.locator('#authorization-id').innerText()).trim()
-          detail = `Approved at ${shop.name}. Order ${order.orderId}, Stripe authorization ${order.authorizationId}.`
+          detail = `Approved at ${shop.name}. Order ${order.orderId}, Stripe ${PAY_RAIL === 'spt' ? 'payment' : 'authorization'} ${order.authorizationId}.`
         } else {
           order.status = 'declined'
           order.declineReason = after.searchParams.get('declined') ?? 'declined'

@@ -4,6 +4,7 @@ import { findIssuingCard, stripe } from '@/lib/stripe'
 import { readStore, updateStore, type Order } from '@/lib/store'
 import { parseBasket, priceBasket } from '@/lib/basket'
 import { PUBLIC_DEMO } from '@/lib/demo'
+import { chargeToken } from '@/lib/spt'
 
 // The shop's checkout. In production this would go to the shop's payment processor and on to the
 // card network. In sandbox the shop server plays the card network: it asks Stripe Issuing to
@@ -28,6 +29,27 @@ export async function POST(req: NextRequest) {
   const total = b.total
 
   const form = await req.formData()
+  const token = String(form.get('agentToken') ?? '').trim()
+  if (token) {
+    // Agentic checkout: charge the Shared Payment Token. Stripe refuses anything over its limit.
+    const pi = await chargeToken(token, total, shop.name)
+    const ok = 'id' in pi
+    const order: Order = {
+      id: `ord_${Date.now().toString(36)}`, shop: shop.slug, weekIndex: readStore().weekIndex,
+      items: b.lines.map((l) => ({ id: l.product.id, name: l.product.name, price: l.price, packs: l.qty })),
+      subtotal: b.subtotal, delivery: b.delivery, total, status: ok ? 'approved' : 'declined',
+      authorizationId: ok ? pi.id : undefined, declineReason: ok ? undefined : pi.error, createdAt: Date.now(),
+    }
+    updateStore((s) => {
+      s.orders.push(order)
+      s.auths.unshift({ id: ok ? pi.id : `declined_${Date.now().toString(36)}`, amount: total, merchant: shop.name, approved: ok, reason: ok ? 'paid with agent token' : 'token refused', policyReason: ok ? `charged token ${token}` : pi.error, t: Date.now() })
+      if (ok && s.wallet) s.wallet.balancePence -= total
+    })
+    if (!ok) return decline(pi.error)
+    const res = NextResponse.redirect(`${base}/order/${order.id}`, 303)
+    res.cookies.set('basket', '{}', { path: '/' })
+    return res
+  }
   const [mm, yy] = String(form.get('exp') ?? '').split('/').map((s) => parseInt(s.trim(), 10))
   const card = await findIssuingCard(String(form.get('cardNumber') ?? ''), mm, 2000 + (yy ?? 0))
   if (!card) return decline('card number not recognised')
