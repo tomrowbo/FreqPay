@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { stripe } from '@/lib/stripe'
+import { cookies } from 'next/headers'
 import { readStore, updateStore } from '@/lib/store'
 
 // Top up the agent wallet: a Stripe Checkout payment (test mode) the office makes; the agent's
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      ...({ payment_method_types: ['card'] } as object), // card only (the SDK's types omit it; the API accepts it)
+      customer_email: (await cookies()).get('fp_user')?.value, // the signed-in email, prefilled
       line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: amount, product_data: { name: 'FreqPay agent wallet top-up', description: `For ${readStore().profile.team}'s restock agent` } } }],
       payment_intent_data: { setup_future_usage: 'off_session' }, // saved for automatic top-ups
       success_url: `${origin}/?funded={CHECKOUT_SESSION_ID}`,

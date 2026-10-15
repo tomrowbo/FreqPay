@@ -46,7 +46,8 @@ const ADD_STEPS = ['What you need', 'Your basket']
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
   const steps = account ? ADD_STEPS : FIRST_STEPS
   const [step, setStep] = useState(0)
-  const [office, setOffice] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD', allergies: 'nuts' })
+  const [office, setOffice] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD' })
+  const [notes, setNotes] = useState(account ? '' : 'Two people have nut allergies, so nothing with nuts in it, including "may contain".')
   const [sub, setSub] = useState({ name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
   const [rows, setRows] = useState<Row[]>(account ? CLEANING : KITCHEN)
   const [budget, setBudget] = useState('450')
@@ -65,7 +66,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
     window.history.replaceState({}, '', '/')
     try {
       const saved = JSON.parse(sessionStorage.getItem('fp-setup') ?? 'null')
-      if (saved) { setOffice(saved.office); setSub(saved.sub); setRows(saved.rows); setBudget(saved.budget); setTopup(saved.topup); setDraft(saved.draft); setStep(3) }
+      if (saved) { setOffice(saved.office); setSub(saved.sub); setNotes(saved.notes ?? ''); setRows(saved.rows); setBudget(saved.budget); setTopup(saved.topup); setDraft(saved.draft); setStep(3) }
     } catch {}
     if (q === 'cancel') return setError('Top-up cancelled. Your basket is still here.')
     setBusy('Confirming your top-up with Stripe…')
@@ -87,15 +88,15 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
     const often = FREQUENCIES.find((f) => f.weeks === sub.every)?.label.toLowerCase() ?? 'every week'
     const who = account
       ? `${account.team}. Weekly budget £${(account.budgetPence / 100).toFixed(0)}. Allergies: ${account.allergies.join(', ') || 'none'}.`
-      : `${office.company}, a ${office.headcount}-person office. Allergies: ${office.allergies || 'none'}. Keep it under £${budget} a week.`
-    void call({ prompt: `${who}\nSubscription "${sub.name}", delivered ${often}. Per delivery we need:\n${items}` }, 'Pricing your basket across the shops…', steps.indexOf('Your basket'))
+      : `${office.company}, a ${office.headcount}-person office. Keep it under £${budget} a week.`
+    void call({ prompt: `${who}\nSubscription "${sub.name}", delivered ${often}. Per delivery we need:\n${items}${notes.trim() ? `\nNotes: ${notes.trim()}` : ''}` }, 'Pricing your basket across the shops…', steps.indexOf('Your basket'))
   }
   const reprice = (profile: Profile) => draft && void call({ profile, notCovered: draft.notCovered, assumptions: draft.assumptions }, 'Re-pricing…')
   const setQty = (id: string, qty: number) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.map((l) => (l.id === id ? { ...l, qty } : l)) })
   const remove = (id: string) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.filter((l) => l.id !== id) })
 
   const budgetPence = account?.budgetPence ?? (Math.round(Number(budget) * 100) || 0)
-  const profile = (): Profile => ({ ...draft!.profile, team: account?.team ?? `${office.company} (${office.headcount} people)`, budgetPence, allergies: account?.allergies ?? office.allergies.split(',').map((x) => x.trim()).filter(Boolean) })
+  const profile = (): Profile => ({ ...draft!.profile, team: account?.team ?? `${office.company} (${office.headcount} people)`, budgetPence, allergies: account?.allergies ?? draft!.profile.allergies }) // read from the notes by Claude
   async function start() {
     setBusy('Starting…'); setError('')
     const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: sub.name, everyWeeks: sub.every, lines: draft!.profile.lines, profile: profile(), address: office.address }) }).then((x) => x.json())
@@ -105,7 +106,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   }
   async function payWithStripe() {
     setBusy('Opening Stripe Checkout…'); setError('')
-    try { sessionStorage.setItem('fp-setup', JSON.stringify({ office, sub, rows, budget, topup, draft })) } catch {}
+    try { sessionStorage.setItem('fp-setup', JSON.stringify({ office, sub, rows, notes, budget, topup, draft })) } catch {}
     const r = await fetch('/api/billing', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amountPence: topup }) }).then((x) => x.json())
     if (r.url) window.location.href = r.url
     else { setBusy(''); setError(r.error ?? 'Stripe is unavailable') }
@@ -134,7 +135,6 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
           <label className="fp-field">Company<input className="fp-input" value={office.company} onChange={(e) => setOffice({ ...office, company: e.target.value })} autoComplete="organization" /></label>
           <label className="fp-field">People in the office<input className="fp-input" type="number" min={1} value={office.headcount} onChange={(e) => setOffice({ ...office, headcount: e.target.value })} /></label>
           <label className="fp-field wide">Delivery address<input className="fp-input" value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} autoComplete="street-address" /></label>
-          <label className="fp-field wide">Allergies in the team<input className="fp-input" value={office.allergies} onChange={(e) => setOffice({ ...office, allergies: e.target.value })} placeholder="e.g. nuts, gluten" /><span className="fp-muted small" style={{ fontWeight: 400 }}>We never buy anything that contains them, or may contain them.</span></label>
         </div>
         <div className="fp-row" style={{ marginTop: 20 }}>
           <button className="fp-btn" onClick={() => setStep(1)} disabled={!office.company.trim() || !office.address.trim()}>Continue</button>
@@ -161,6 +161,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
           ))}
           <button className="fp-btn sm ghost" style={{ marginTop: 8 }} onClick={() => setRows([...rows, row('', '', '')])}>+ Add item</button>
         </div>
+        <label className="fp-field" style={{ marginTop: 18 }}>Anything else we should know?<textarea className="fp-textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, brands to avoid, delivery instructions…" /></label>
         <div className="fp-row" style={{ marginTop: 20 }}>
           {step > 0 ? <button className="fp-btn ghost" onClick={() => setStep(step - 1)}>Back</button> : onCancel && <button className="fp-btn ghost" onClick={onCancel}>Cancel</button>}
           <button className="fp-btn" onClick={draftIt} disabled={!!busy || !rows.some((r) => r.name.trim() && Number(r.qty) > 0)}>Find the best prices</button>
@@ -194,6 +195,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
             )
           })}
         </div>
+        {draft.profile.allergies.length > 0 && <p className="fp-muted small">Avoiding anything with: {draft.profile.allergies.join(', ')} (from your notes).</p>}
         {draft.notCovered.length > 0 && <p className="fp-bad small">Our shops don&apos;t sell: {draft.notCovered.join(', ')}.</p>}
         <div className="fp-row" style={{ marginTop: 20 }}>
           <button className="fp-btn ghost" onClick={() => setStep(step - 1)}>Edit items</button>
