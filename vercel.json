@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/:path*", "has": [{ "type": "host", "value": "freqpay.app" }], "destination": "https://powder-thinkpad-projects-animals.trycloudflare.com/:path*" },
+    { "source": "/:path*", "has": [{ "type": "host", "value": "www.freqpay.app" }], "destination": "https://powder-thinkpad-projects-animals.trycloudflare.com/:path*" }
+  ]
+}

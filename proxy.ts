@@ -5,6 +5,10 @@ import { shopByHost } from './lib/shops'
 export function proxy(req: NextRequest) {
   const shop = shopByHost(req.headers.get('host') ?? '')
   const { pathname } = req.nextUrl
+  // The shop pages (with their card form) only exist on the local shop hosts the agent uses
+  // (tesco.localhost...). Through a public tunnel they 404, so no card form is ever public.
+  const local = (req.headers.get('host') ?? '').split(':')[0].endsWith('localhost')
+  if (!local && (pathname.startsWith('/shops') || pathname.startsWith('/api/shop/'))) return new NextResponse('Not found', { status: 404 })
   if (!shop || pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname.startsWith('/shops/')) return NextResponse.next()
   const url = req.nextUrl.clone()
   url.pathname = `/shops/${shop.slug}${pathname === '/' ? '' : pathname}`
