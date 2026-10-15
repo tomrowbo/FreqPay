@@ -47,7 +47,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   const steps = account ? ADD_STEPS : FIRST_STEPS
   const [step, setStep] = useState(0)
   const [office, setOffice] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD' })
-  const [notes, setNotes] = useState(account ? '' : 'Two people have nut allergies, so nothing with nuts in it, including "may contain".')
+  const [notes, setNotes] = useState(account ? '' : 'Two people have nut allergies.')
   const [sub, setSub] = useState({ name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
   const [rows, setRows] = useState<Row[]>(account ? CLEANING : KITCHEN)
   const [budget, setBudget] = useState('450')
