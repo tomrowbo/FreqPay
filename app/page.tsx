@@ -6,6 +6,7 @@ import { weekLabel } from '@/lib/week'
 import { SHOPS } from '@/lib/shops'
 import { FREQUENCIES, frequencyLabel, isDue, nextDue, type Subscription } from '@/lib/subscriptions'
 import Onboarding, { Photo } from './Onboarding'
+import Landing from './Landing'
 
 const gbp = (p?: number) => (p === undefined ? '—' : `£${(p / 100).toFixed(2)}`)
 const shopOf = (slug: string) => SHOPS.find((x) => x.slug === slug)
@@ -25,41 +26,10 @@ export default function Home() {
     <div className="fp">
       <div className="fp-wrap">
         <nav className="fp-nav">
-          <div className="fp-logo"><span className="fp-mark">↻</span>FreqPay</div>
+          <div className="fp-logo"><img className="fp-mark-img" src="/brand/mark.svg" alt="" />FreqPay</div>
           {s.user && <div className="fp-user">{s.user}<button className="fp-link" onClick={() => fetch('/api/login', { method: 'DELETE' }).then(load)}>Sign out</button></div>}
         </nav>
         {!s.user ? <Landing onIn={load} /> : !s.profile.confirmed ? <Onboarding onDone={load} /> : <App s={s} reload={load} />}
-      </div>
-    </div>
-  )
-}
-
-function Landing({ onIn }: { onIn: () => void }) {
-  const [email, setEmail] = useState('')
-  const [err, setErr] = useState('')
-  async function go(e: React.FormEvent) {
-    e.preventDefault()
-    const r = await post('/api/login', { email })
-    if (r.error) setErr(r.error)
-    else onIn()
-  }
-  return (
-    <div className="fp-hero">
-      <div>
-        <h1 className="fp-h1">Your office restock, <span>on autopilot.</span></h1>
-        <p className="fp-lede">Tell FreqPay what the office gets through. Every week, or every two, an AI agent buys it from the cheapest mix of UK shops, delivery included, and pays with a company card that only approves the plan.</p>
-        <form className="fp-signin" onSubmit={go}>
-          <input className="fp-input" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Work email" />
-          <button className="fp-btn" type="submit">Continue</button>
-        </form>
-        {err && <p className="fp-bad small">{err}</p>}
-        <p className="fp-muted small">No password needed. Sandbox demo: no real orders or payments.</p>
-        <div className="fp-logos">{SHOPS.map((x) => <img key={x.slug} src={x.logo} alt={x.name} title={x.name} />)}</div>
-      </div>
-      <div className="fp-feats">
-        <div className="fp-feat"><span className="fp-ico">🧺</span><div><b>The cheapest split, delivery included</b><span className="fp-muted">Compares nine shops every delivery and splits across up to 3 where it's cheaper after delivery charges and minimum orders.</span></div></div>
-        <div className="fp-feat"><span className="fp-ico">🔁</span><div><b>Subscriptions on your schedule</b><span className="fp-muted">Kitchen every week, cleaning every two. Change items or frequency any time.</span></div></div>
-        <div className="fp-feat"><span className="fp-ico">💳</span><div><b>Your rules, enforced by the card</b><span className="fp-muted">Stripe Issuing approves a charge only if it matches the agent's plan to the penny: approved shops, budget, allergies, brands.</span></div></div>
       </div>
     </div>
   )

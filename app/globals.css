@@ -93,3 +93,41 @@ table { width: 100%; border-collapse: collapse; } td, th { text-align: left; pad
 .fp-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
 .fp-live .fp-dot { animation: fp-pulse 1.2s infinite; }
 @keyframes fp-pulse { 50% { opacity: 0.25; } }
+
+/* Landing (lp-*) */
+.lp-hero { display: grid; grid-template-columns: 1fr 1.05fr; gap: 48px; align-items: center; padding: 40px 0 36px; }
+@media (max-width: 900px) { .lp-hero { grid-template-columns: 1fr; } }
+.lp-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--edge); color: var(--ink2); margin-bottom: 18px; }
+.lp-visual { position: relative; }
+.lp-photo { width: 100%; aspect-ratio: 4 / 3.3; object-fit: cover; border-radius: 28px; box-shadow: 0 30px 60px rgba(30, 27, 75, 0.18); display: block; }
+.lp-float { position: absolute; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 18px; box-shadow: 0 18px 40px rgba(16, 24, 40, 0.18); padding: 14px 16px; }
+.lp-float-a { left: -28px; bottom: -26px; width: 260px; }
+.lp-float-b { right: -14px; top: 22px; max-width: 250px; font-size: 13px; }
+@media (max-width: 900px) { .lp-float-a { left: 12px; } .lp-float-b { right: 12px; } }
+.lp-paid { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; padding: 4px 0; }
+.lp-paid img { height: 18px; max-width: 70px; object-fit: contain; object-position: left; }
+.lp-saved { border-top: 1px solid var(--edge); margin-top: 8px; padding-top: 8px; font-size: 13px; }
+.lp-saved b { color: var(--good); }
+.lp-strip { padding: 34px 0 10px; text-align: center; }
+.lp-strip .fp-logos { justify-content: center; margin-top: 12px; }
+.lp-section { padding: 56px 0 8px; }
+.lp-h2 { font-size: clamp(26px, 3.2vw, 38px); letter-spacing: -0.03em; line-height: 1.1; margin: 0 0 14px; }
+.lp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 22px; }
+.lp-step { background: #fff; border: 1px solid var(--edge); border-radius: 20px; padding: 22px; }
+.lp-step b { font-size: 17px; display: block; margin: 12px 0 6px; }
+.lp-step p { margin: 0; color: var(--ink2); line-height: 1.55; font-size: 15px; }
+.lp-num { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand2)); }
+.lp-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; margin: 56px 0 8px; padding: 30px; border-radius: 26px; color: #fff; background: radial-gradient(600px 300px at 0% 0%, rgba(139, 92, 246, 0.55), transparent 60%), linear-gradient(135deg, #1e1b4b, #312e81); }
+.lp-stat b { display: block; font-size: 38px; letter-spacing: -0.03em; }
+.lp-stat span { opacity: 0.8; font-size: 14px; line-height: 1.45; }
+.lp-split { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; padding: 56px 0 8px; }
+@media (max-width: 900px) { .lp-split { grid-template-columns: 1fr; } }
+.lp-mock { display: grid; gap: 12px; }
+.lp-mock-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--edge); border-radius: 18px; padding: 16px 18px; box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06); flex-wrap: wrap; }
+.lp-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lp-rule { display: flex; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--edge); border-radius: 14px; padding: 14px; font-weight: 600; font-size: 14px; }
+.lp-cta { margin: 64px 0 18px; padding: 40px; border-radius: 28px; text-align: center; background: linear-gradient(135deg, var(--brand), var(--brand2)); display: grid; justify-items: center; gap: 10px; }
+.lp-cta .fp-btn { background: #fff; color: var(--brand); }
+.lp-cta .fp-input { border-color: transparent; }
+.lp-foot { text-align: center; padding: 10px 0 0; }
+.fp-mark-img { width: 32px; height: 32px; display: block; filter: drop-shadow(0 6px 14px rgba(79, 70, 229, 0.35)); }
