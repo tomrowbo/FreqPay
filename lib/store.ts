@@ -38,6 +38,7 @@ export interface Week {
   savings?: number // bestSingleShop.total - total
   rejected?: Rejection[]
   note?: string
+  includes?: string[] // subscriptions due this week, recorded when it starts
 }
 
 export interface RunEvent { runId: string; t: number; kind: 'step' | 'tool' | 'check' | 'decision' | 'pay' | 'error' | 'done'; text: string }
@@ -111,9 +112,18 @@ export const DEFAULT_STORE: Store = {
   agent: {},
 }
 
+// Stores from before subscriptions: a confirmed list becomes one weekly subscription, so the
+// page and the agent agree. An empty array (after a reset) stays empty.
+export function migrate(s: Store): Store {
+  if (s.subscriptions === undefined && s.profile.confirmed && s.profile.lines.length) {
+    s.subscriptions = [{ id: 'sub_weekly', name: 'Weekly restock', everyWeeks: 1, startWeek: 1, lines: s.profile.lines }]
+  }
+  return s
+}
+
 export function readStore(): Store {
   try {
-    return JSON.parse(fs.readFileSync(FILE, 'utf8')) as Store
+    return migrate(JSON.parse(fs.readFileSync(FILE, 'utf8')) as Store)
   } catch {
     return structuredClone(DEFAULT_STORE)
   }

@@ -28,7 +28,7 @@ export default function Home() {
           <div className="fp-logo"><span className="fp-mark">↻</span>FreqPay</div>
           {s.user && <div className="fp-user">{s.user}<button className="fp-link" onClick={() => fetch('/api/login', { method: 'DELETE' }).then(load)}>Sign out</button></div>}
         </nav>
-        {!s.user ? <Landing onIn={load} /> : !s.profile.confirmed || !s.subscriptions?.length ? <Onboarding onDone={load} /> : <App s={s} reload={load} />}
+        {!s.user ? <Landing onIn={load} /> : !s.profile.confirmed ? <Onboarding onDone={load} /> : <App s={s} reload={load} />}
       </div>
     </div>
   )
@@ -133,14 +133,18 @@ function App({ s, reload }: { s: State; reload: () => void }) {
 function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reload: () => void }) {
   const [qtys, setQtys] = useState<Record<string, string>>({})
   const [name, setName] = useState(sub.name)
+  const [err, setErr] = useState('')
+  useEffect(() => setName(sub.name), [sub.name])
   const dirty = Object.keys(qtys).length > 0
-  const update = (fields: object) => post('/api/subscriptions', { action: 'update', id: sub.id, ...fields }).then(reload)
+  const update = (fields: object) => post('/api/subscriptions', { action: 'update', id: sub.id, ...fields }).then((r) => { setErr(r.error ?? ''); reload() })
+  const parsed = Object.entries(qtys).map(([k, v]) => [k, v.trim() === '' ? NaN : Number(v)] as const)
+  const valid = parsed.every(([, n]) => Number.isFinite(n) && n >= 0)
   const next = nextDue(sub, week)
   return (
     <section className="fp-panel" style={{ marginBottom: 0 }}>
       <div className="fp-sub-head">
         <div style={{ flex: 1 }}>
-          <input className="fp-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== sub.name && update({ name })} aria-label="Subscription name" />
+          <input className="fp-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => (name.trim() ? name.trim() !== sub.name && update({ name: name.trim() }) : setName(sub.name))} aria-label="Subscription name" />
           <div className="fp-muted small">{sub.lines.length} items · {next ? `next delivery ${weekLabel(next)}` : 'paused'}</div>
         </div>
         <span className={`fp-pill ${sub.paused ? 'off' : 'on'}`}><span className="fp-dot" />{sub.paused ? 'Paused' : 'Active'}</span>
@@ -156,19 +160,20 @@ function SubCard({ sub, week, reload }: { sub: Subscription; week: number; reloa
             <Photo category={l.category} size={34} />
             <span>{l.name}<span className="fp-muted small">{l.brand ? ` · ${l.brand} only` : ''}</span></span>
             <span className="fp-row tight">
-              <input className="fp-input qty" value={qtys[l.id] ?? String(l.qty)} onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} aria-label={`Quantity of ${l.name}`} />
+              <input className="fp-input qty" type="number" min={0} value={qtys[l.id] ?? String(l.qty)} onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} aria-label={`Quantity of ${l.name}`} />
               <span className="fp-muted small" style={{ width: 62 }}>{l.unit}</span>
             </span>
           </li>
         ))}
       </ul>
       <div className="fp-row">
-        {dirty && <button className="fp-btn sm" onClick={() => update({ qtys: Object.fromEntries(Object.entries(qtys).map(([k, v]) => [k, Number(v)])) }).then(() => setQtys({}))}>Save changes</button>}
+        {dirty && <button className="fp-btn sm" disabled={!valid} title={valid ? '0 removes an item' : 'Quantities must be numbers'} onClick={() => update({ qtys: Object.fromEntries(parsed) }).then(() => setQtys({}))}>Save changes</button>}
         {dirty && <button className="fp-btn sm ghost" onClick={() => setQtys({})}>Discard</button>}
         <button className="fp-btn sm ghost" onClick={() => update({ paused: !sub.paused })}>{sub.paused ? 'Resume' : 'Pause'}</button>
         <button className="fp-link" onClick={() => post('/api/subscriptions', { action: 'remove', id: sub.id }).then(reload)}>Cancel subscription</button>
       </div>
-      <div className="fp-muted small" style={{ marginTop: 8 }}>{frequencyLabel(sub.everyWeeks)}. Changes apply from the next delivery.</div>
+      {err && <div className="fp-bad small" style={{ marginTop: 8 }}>{err}</div>}
+      <div className="fp-muted small" style={{ marginTop: 8 }}>{frequencyLabel(sub.everyWeeks)}. Changes apply from the next delivery; 0 removes an item.</div>
     </section>
   )
 }
@@ -194,7 +199,7 @@ function Account({ s, reload }: { s: State; reload: () => void }) {
 
 function LatestWeek({ s, m, subs }: { s: State; m: Week; subs: Subscription[] }) {
   const events = s.events.filter((e) => e.runId === m.runId)
-  const included = subs.filter((x) => isDue(x, m.index)).map((x) => x.name)
+  const included = m.includes ?? subs.filter((x) => isDue(x, m.index)).map((x) => x.name)
   return (
     <>
       <div className="fp-section"><h2>Latest delivery · {m.label}</h2><span className={`fp-pill ${m.status === 'bought' ? 'on' : m.status === 'running' ? 'run' : 'off'}`}>{m.status === 'bought' ? 'Bought' : m.status === 'running' ? 'Shopping' : m.status}</span></div>

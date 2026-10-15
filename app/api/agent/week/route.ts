@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { weekLabel, updateStore, type Week } from '@/lib/store'
+import { isDue } from '@/lib/subscriptions'
 
 // action "start": advance the demo clock and open a new week. action "update": merge fields.
 export async function POST(req: NextRequest) {
@@ -7,7 +8,8 @@ export async function POST(req: NextRequest) {
   const week = updateStore((s) => {
     if (body.action === 'start') {
       s.weekIndex += 1
-      const m: Week = { index: s.weekIndex, label: weekLabel(s.weekIndex), runId: body.runId, status: 'running' }
+      const includes = (s.subscriptions ?? []).filter((x) => isDue(x, s.weekIndex)).map((x) => x.name)
+      const m: Week = { index: s.weekIndex, label: weekLabel(s.weekIndex), runId: body.runId, status: 'running', ...(s.subscriptions?.length ? { includes } : {}) }
       s.weeks.push(m)
       return m
     }

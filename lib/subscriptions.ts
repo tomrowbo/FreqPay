@@ -28,7 +28,8 @@ export function dueLines(subs: Subscription[], week: number): RestockLine[] {
   for (const s of subs.filter((x) => isDue(x, week))) {
     for (const l of s.lines) {
       const cur = out.get(l.id)
-      out.set(l.id, cur ? { ...cur, qty: cur.qty + l.qty } : { ...l })
+      // a brand rule from either subscription wins (stricter): one list's "any brand" never loosens another's
+      out.set(l.id, cur ? { ...cur, qty: cur.qty + l.qty, brand: cur.brand ?? l.brand } : { ...l })
     }
   }
   return [...out.values()]
@@ -39,6 +40,14 @@ export function nextDue(s: Subscription, week: number): number | null {
   if (s.paused) return null
   if (week < s.startWeek) return s.startWeek
   return s.startWeek + (Math.floor((week - s.startWeek) / s.everyWeeks) + 1) * s.everyWeeks
+}
+
+// New frequency: the next delivery is the last one plus the new gap (never in the past); a
+// subscription that hasn't been delivered yet keeps its first date.
+export function reanchor(s: Subscription, week: number, every: Frequency): number {
+  if (week < s.startWeek) return s.startWeek
+  const last = s.startWeek + Math.floor((week - s.startWeek) / s.everyWeeks) * s.everyWeeks
+  return Math.max(last + every, week + 1)
 }
 
 // What the agent shops for in `week`. No subscriptions (the default list) = the profile as it is.
