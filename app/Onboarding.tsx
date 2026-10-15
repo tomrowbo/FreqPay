@@ -33,7 +33,8 @@ interface Draft { profile: Profile; preview: WeekPlan; name: string; everyWeeks:
 export function Photo({ category, productId, size = 96 }: { category: string; productId?: string; size?: number }) {
   const [failed, setFailed] = useState(false)
   const own = productId ? PRODUCT_IMAGES[productId] : undefined
-  const img = own ? { url: own, credit: 'Shop pack photo' } : LINE_IMAGES[category]
+  // A planned product without its own shop photo gets a neutral tile, never another brand's photo.
+  const img = own ? { url: own, credit: 'Shop pack photo' } : productId ? undefined : LINE_IMAGES[category]
   if (!img || failed) return <div className="fp-photo" style={{ height: size, fontSize: size * 0.45 }}>{LINE_EMOJI[category] ?? '📦'}</div>
   // eslint-disable-next-line @next/next/no-img-element
   return <img className="fp-photo" src={img.url} alt="" title={img.credit} onError={() => setFailed(true)} style={{ height: size }} />
@@ -49,7 +50,9 @@ const STEP_IMAGES: Record<string, string> = { 'Your office': '/brand/office.jpg'
 export default function Onboarding({ account, onDone, onCancel }: { account?: Profile; onDone: () => void; onCancel?: () => void }) {
   const steps = account ? ADD_STEPS : FIRST_STEPS
   const [step, setStep] = useState(0)
-  const [office, setOffice] = useState({ company: 'Rowbo Studio', headcount: '60', address: '2 Kingdom Street, London W2 6BD' })
+  const [office, setOffice] = useState({ company: 'Rowbo Studio', line1: '2 Kingdom Street', line2: 'Paddington', town: 'London', county: 'Greater London', postcode: 'W2 6BD' })
+  const address = [office.line1, office.line2, office.town, office.county, office.postcode].map((x) => x.trim()).filter(Boolean).join(', ')
+  const validPostcode = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(office.postcode.trim())
   const [notes, setNotes] = useState(account ? '' : 'Two people have nut allergies.')
   const [sub, setSub] = useState({ name: account ? 'Washrooms & cleaning' : 'Kitchen & pantry', every: account ? 2 : 1 })
   const [rows, setRows] = useState<Row[]>(account ? CLEANING : KITCHEN)
@@ -91,7 +94,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
     const often = FREQUENCIES.find((f) => f.weeks === sub.every)?.label.toLowerCase() ?? 'every week'
     const who = account
       ? `${account.team}. Weekly budget £${(account.budgetPence / 100).toFixed(0)}. Allergies: ${account.allergies.join(', ') || 'none'}.`
-      : `${office.company}, a ${office.headcount}-person office. Keep it under £${budget} a week.`
+      : `${office.company}, an office. Keep it under £${budget} a week.`
     void call({ prompt: `${who}\nSubscription "${sub.name}", delivered ${often}. Per delivery we need:\n${items}${notes.trim() ? `\nNotes: ${notes.trim()}` : ''}` }, 'Pricing your basket across the shops…', steps.indexOf('Your basket'))
   }
   const reprice = (profile: Profile) => draft && void call({ profile, notCovered: draft.notCovered, assumptions: draft.assumptions }, 'Re-pricing…')
@@ -99,10 +102,10 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
   const remove = (id: string) => draft && reprice({ ...draft.profile, lines: draft.profile.lines.filter((l) => l.id !== id) })
 
   const budgetPence = account?.budgetPence ?? (Math.round(Number(budget) * 100) || 0)
-  const profile = (): Profile => ({ ...draft!.profile, team: account?.team ?? `${office.company} (${office.headcount} people)`, budgetPence, allergies: account?.allergies ?? draft!.profile.allergies }) // read from the notes by Claude
+  const profile = (): Profile => ({ ...draft!.profile, team: account?.team ?? office.company.trim(), budgetPence, allergies: account?.allergies ?? draft!.profile.allergies }) // read from the notes by Claude
   async function start() {
     setBusy('Starting…'); setError('')
-    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: sub.name, everyWeeks: sub.every, lines: draft!.profile.lines, profile: profile(), address: office.address }) }).then((x) => x.json())
+    const r = await fetch('/api/subscriptions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', name: sub.name, everyWeeks: sub.every, lines: draft!.profile.lines, profile: profile(), address }) }).then((x) => x.json())
     setBusy('')
     if (r.error) setError(r.error)
     else { try { sessionStorage.removeItem('fp-setup') } catch {} ; onDone() }
@@ -137,11 +140,15 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
         <p className="fp-sub">Where we deliver, and who we&apos;re buying for.</p>
         <div className="fp-form">
           <label className="fp-field">Company<input className="fp-input" value={office.company} onChange={(e) => setOffice({ ...office, company: e.target.value })} autoComplete="organization" /></label>
-          <label className="fp-field">People in the office<input className="fp-input" type="number" min={1} value={office.headcount} onChange={(e) => setOffice({ ...office, headcount: e.target.value })} /></label>
-          <label className="fp-field wide">Delivery address<input className="fp-input" value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} autoComplete="street-address" /></label>
+          <div />
+          <label className="fp-field wide">Address line 1<input className="fp-input" value={office.line1} onChange={(e) => setOffice({ ...office, line1: e.target.value })} autoComplete="address-line1" /></label>
+          <label className="fp-field wide">Address line 2 <span className="fp-muted small" style={{ fontWeight: 400 }}>(optional)</span><input className="fp-input" value={office.line2} onChange={(e) => setOffice({ ...office, line2: e.target.value })} autoComplete="address-line2" /></label>
+          <label className="fp-field">Town or city<input className="fp-input" value={office.town} onChange={(e) => setOffice({ ...office, town: e.target.value })} autoComplete="address-level2" /></label>
+          <label className="fp-field">County<input className="fp-input" value={office.county} onChange={(e) => setOffice({ ...office, county: e.target.value })} autoComplete="address-level1" /></label>
+          <label className="fp-field">Postcode<input className="fp-input" value={office.postcode} onChange={(e) => setOffice({ ...office, postcode: e.target.value.toUpperCase() })} autoComplete="postal-code" />{office.postcode && !validPostcode && <span className="fp-bad small" style={{ fontWeight: 400 }}>Enter a UK postcode</span>}</label>
         </div>
         <div className="fp-row" style={{ marginTop: 20 }}>
-          <button className="fp-btn" onClick={() => setStep(1)} disabled={!office.company.trim() || !office.address.trim()}>Continue</button>
+          <button className="fp-btn" onClick={() => setStep(1)} disabled={!office.company.trim() || !office.line1.trim() || !office.town.trim() || !validPostcode}>Continue</button>
         </div>
       </>}
 
@@ -175,7 +182,7 @@ export default function Onboarding({ account, onDone, onCancel }: { account?: Pr
 
       {name === 'Your basket' && draft && p && <>
         <h2 className="fp-h2">Your basket: {sub.name}</h2>
-        <p className="fp-sub">Delivered {often} to {account?.address ?? office.address}. Best prices across {SHOPS.length} shops, delivery included.</p>
+        <p className="fp-sub">Delivered {often} to {account?.address ?? address}. Best prices across {SHOPS.length} shops, delivery included.</p>
         <div className="fp-basket-sum">
           <div><div className="fp-muted small">Each delivery</div><b>{gbp(p.total)}</b></div>
           <div><div className="fp-muted small">From</div><b>{p.orders.map((o) => SHOP_NAMES[o.shop]).join(' + ') || '—'}</b></div>
