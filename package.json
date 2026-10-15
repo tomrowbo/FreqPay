@@ -1,0 +1,31 @@
+{
+  "name": "freqpay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "start": "next start -p 3000",
+    "dev": "next dev -p 3000",
+    "agent": "tsx --env-file=.env.local agent/server.ts",
+    "stripe:listen": "sh -c '. ./.env.local && stripe listen --api-key $STRIPE_AGENT_SECRET_KEY --events issuing_authorization.request --forward-to localhost:3000/api/stripe/webhook'",
+    "smoke:checkout": "tsx --env-file=.env.local scripts/checkout-smoke.ts",
+    "smoke:click": "AGENT_HEADLESS=1 tsx --env-file=.env.local scripts/click-test.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "next": "16.4.0",
+    "playwright": "1.64.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "stripe": "23.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
